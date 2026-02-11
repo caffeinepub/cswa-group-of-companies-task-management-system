@@ -1,0 +1,85 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-11T19:36:50.645Z",
+  "summary": "Theme-related updates are present: global CSS tokens updated (light/dark), Tailwind theme extended with new shadows, and multiple pages/layout sections show modernized styling (gradients, shadows, typography). However, the diff also introduces multiple functional additions/behavior changes (e.g., Public Search, To‑Do navigation tab, Excel import/export and filtering enhancements) that were explicitly out of scope as “no new features/routing/auth changes.”",
+  "missing_requirements": [],
+  "hallucinated_features": [
+    {
+      "description": "Added/changed navigation and pages beyond styling: a new “To‑Do List” tab in the main layout navigation.",
+      "reason": "BuildRequest is theme-only and explicitly states “Do not add new features” and “Do not change routing/authentication behavior.” Adding a new nav item/page access is functional scope expansion.",
+      "evidence": [
+        "frontend/src/components/MainLayout.tsx",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Login page includes a new “Public Search” flow/button and navigation to /search.",
+      "reason": "BuildRequest requires styling updates only and explicitly forbids routing/authentication behavior changes. Adding a public search path/button is new functionality.",
+      "evidence": [
+        "frontend/src/pages/LoginPage.tsx",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Dashboard functional changes: “interactive revenue cards, task category filtering, expandable detail sections” and removal of due/completion date sortable sections (per summary).",
+      "reason": "REQ-3 asks for visual modernization without changing app functionality; these are behavioral/feature changes.",
+      "evidence": [
+        "frontend-file-summaries.txt",
+        "frontend/src/pages/DashboardPage.tsx"
+      ]
+    },
+    {
+      "description": "Client page adds admin Excel template download and bulk import actions.",
+      "reason": "Not requested; non-goal is to avoid adding new features as part of the theme update.",
+      "evidence": [
+        "frontend/src/pages/ClientsPage.tsx",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Tasks page adds an integrated date filter, date-based search behavior, additional loading indicators, and export behavior changes respecting applied filters.",
+      "reason": "Not requested; beyond styling and constitutes new/changed filtering/export functionality.",
+      "evidence": [
+        "frontend/src/pages/TasksPage.tsx",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Team page adds bulk import assignees and download template capabilities (admin actions).",
+      "reason": "Not requested; adds functional features beyond theme styling.",
+      "evidence": [
+        "frontend/src/pages/TeamPage.tsx",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Multiple components described as enhanced with new selection, bulk actions, inline editing, new dialog fields, etc. (ClientTable, TaskList, CreateTaskDialog, client dialogs).",
+      "reason": "BuildRequest is UI theme only and forbids new features/data-model/behavior changes; these are functional enhancements.",
+      "evidence": [
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "Hooks/query behavior changes described for public search (fail-fast retries, refetch behavior) in useQueries.",
+      "reason": "BuildRequest forbids routing/auth changes and does not request backend/query behavior changes; also constraints mention not modifying certain immutable hook/bootstrap files (though this mentions useQueries specifically).",
+      "evidence": [
+        "frontend-file-summaries.txt"
+      ]
+    }
+  ],
+  "confidence": 0.72,
+  "changed_files": [
+    "frontend-file-summaries.txt",
+    "frontend/src/components/MainLayout.tsx",
+    "frontend/src/index.css",
+    "frontend/src/pages/ClientsPage.tsx",
+    "frontend/src/pages/DashboardPage.tsx",
+    "frontend/src/pages/LoginPage.tsx",
+    "frontend/src/pages/TasksPage.tsx",
+    "frontend/src/pages/TeamPage.tsx",
+    "frontend/src/pages/ToDoPage.tsx",
+    "frontend/tailwind.config.js",
+    "project_state.json"
+  ]
+}

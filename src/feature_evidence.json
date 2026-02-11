@@ -1,0 +1,71 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-redesign-the-app-s-visual-theme-to-look-more-stylish-and-modern-across-all-pages-dashboard-clients-tasks-to-do-team-login-by-updating-global-theme-tokens-and-applying-consistent-spacing-typography-shadows-and-hover-active-states",
+      "featureTitle": "Redesign the app’s visual theme to look more stylish and modern across all pages (Dashboard, Clients, Tasks, To‑Do, Team, Login) by updating global theme tokens and applying consistent spacing, typography, shadows, and hover/active states.",
+      "files": [
+        "frontend/src/index.css",
+        "frontend/src/pages/ClientsPage.tsx",
+        "frontend/src/pages/TasksPage.tsx",
+        "frontend/src/pages/TeamPage.tsx",
+        "frontend/src/pages/ToDoPage.tsx",
+        "frontend/tailwind.config.js"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-refresh-the-main-shell-sidebar-header-footer-styling-to-match-the-new-theme-including-improved-navigation-affordances-active-item-hover-state-better-sidebar-header-spacing-and-a-more-premium-look",
+      "featureTitle": "Refresh the main shell (sidebar/header/footer) styling to match the new theme, including improved navigation affordances (active item, hover state), better sidebar/header spacing, and a more premium look.",
+      "files": [
+        "frontend/src/components/MainLayout.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-key-page-level-ui-sections-at-minimum-dashboard-and-login-to-better-reflect-the-new-stylish-theme-using-consistent-header-hierarchy-icon-treatments-and-subtle-visual-depth-e-g-soft-shadows-gradients-or-tasteful-backgrounds-without-changing-app-functionality",
+      "featureTitle": "Update key page-level UI sections (at minimum Dashboard and Login) to better reflect the new stylish theme, using consistent header hierarchy, icon treatments, and subtle visual depth (e.g., soft shadows, gradients, or tasteful backgrounds) without changing app functionality.",
+      "files": [
+        "frontend/src/pages/DashboardPage.tsx",
+        "frontend/src/pages/LoginPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "blob-storage@4.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

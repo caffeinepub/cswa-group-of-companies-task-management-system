@@ -1,0 +1,77 @@
+{
+  "kind": "build_request",
+  "title": "Update UI theme to a more stylish, modern design",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Redesign the app’s visual theme to look more stylish and modern across all pages (Dashboard, Clients, Tasks, To‑Do, Team, Login) by updating global theme tokens and applying consistent spacing, typography, shadows, and hover/active states.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "CHANGE THE THEME MORE STYLISH"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A cohesive visual theme is applied across the entire app (no page looks like an older style compared to others).",
+        "Global theme tokens (CSS variables) are updated in frontend/src/index.css for both light and dark mode.",
+        "Primary/secondary/accent colors, borders, muted text, and background colors look intentionally designed (not default) and remain readable with sufficient contrast.",
+        "Cards, tables, and dialogs use a consistent radius, shadow, and padding system.",
+        "Buttons, inputs, selects, and tabs have improved hover/focus styles consistent with the new theme."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Refresh the main shell (sidebar/header/footer) styling to match the new theme, including improved navigation affordances (active item, hover state), better sidebar/header spacing, and a more premium look.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "CHANGE THE THEME MORE STYLISH"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Sidebar and header styling in frontend/src/components/MainLayout.tsx are updated to match the new theme (backgrounds, borders, spacing, and typography).",
+        "Active navigation item is visually distinct in a stylish way (not just a flat color block), and hover states are clearly visible.",
+        "Layout remains responsive: sidebar toggle works and the app remains usable on smaller screens.",
+        "Footer styling matches the updated theme and does not visually clash with the main content."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Update key page-level UI sections (at minimum Dashboard and Login) to better reflect the new stylish theme, using consistent header hierarchy, icon treatments, and subtle visual depth (e.g., soft shadows, gradients, or tasteful backgrounds) without changing app functionality.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "CHANGE THE THEME MORE STYLISH"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Dashboard cards/sections (frontend/src/pages/DashboardPage.tsx) look more modern through improved spacing, typography scale, and consistent icon/badge styling.",
+        "Login page (frontend/src/pages/LoginPage.tsx) styling is aligned with the new theme and feels premium (background, card styling, and typography).",
+        "No functional behavior changes: all existing buttons/flows still work as before (login, navigation, export buttons, etc.)."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not edit files under frontend/src/components/ui (Shadcn UI components); only compose them via props/className from app components/pages.",
+    "Do not modify immutable frontend hook/bootstrap files listed in SYSTEM_CONTEXT (e.g., frontend/src/main.tsx, frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts)."
+  ],
+  "nonGoals": [
+    "Do not add new features (e.g., Team1/Team2 field, customizable task types) as part of this request.",
+    "Do not change backend logic or data models.",
+    "Do not change routing/authentication behavior."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}
