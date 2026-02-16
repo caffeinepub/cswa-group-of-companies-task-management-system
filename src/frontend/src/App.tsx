@@ -19,7 +19,7 @@ export default function App() {
   // Show public search page without authentication
   if (isPublicSearchRoute) {
     return (
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
         <PublicSearchPage />
         <Toaster />
       </ThemeProvider>
@@ -29,7 +29,7 @@ export default function App() {
   // Show loading state while initializing
   if (isInitializing) {
     return (
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
         <div className="flex h-screen items-center justify-center bg-background">
           <div className="text-center">
             <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
@@ -44,7 +44,7 @@ export default function App() {
   // Show login page if not authenticated
   if (!isAuthenticated) {
     return (
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
         <LoginPage />
         <Toaster />
       </ThemeProvider>
@@ -55,7 +55,7 @@ export default function App() {
   const showProfileSetup = isAuthenticated && !profileLoading && isFetched && userProfile === null;
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
       {showProfileSetup && <ProfileSetupModal />}
       <MainLayout />
       <Toaster />

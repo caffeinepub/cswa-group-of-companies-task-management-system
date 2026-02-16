@@ -1,37 +1,24 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Admin dashboard app for managing clients, tasks, and team members; user requests team member categorization (Team1/Team2) with team-wise sorting, customizable task-type list, and a more stylish theme. User also reported data loss and intermittent admin login issues after updates/redeployments.",
-  "architectural_notes": [
-    "Team members should support a two-value team category (Team1/Team2) that can be used for sorting/filtering in UI."
-  ],
-  "known_issues": [
-    "User reports previously saved client/task/team data appears lost after update/redeploy; may be related to draft expiry or logging in with a different Internet Identity/session.",
-    "User reports admin login not working intermittently, though dashboard sometimes indicates an active authenticated session."
-  ],
-  "isFixRequest": true,
+  "summary": "Project now includes a UI theming update: implement a dark blue theme with deep blue accents and darker backgrounds.",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-redesign-the-app-s-visual-theme-to-look-more-stylish-and-modern-across-all-pages-dashboard-clients-tasks-to-do-team-login-by-updating-global-theme-tokens-and-applying-consistent-spacing-typography-shadows-and-hover-active-states",
-      "title": "Redesign the app’s visual theme to look more stylish and modern across all pages (Dashboard, Clients, Tasks, To‑Do, Team, Login) by updating global theme tokens and applying consistent spacing, typography, shadows, and hover/active states.",
+      "id": "feature-update-the-app-theme-tokens-to-a-dark-blue-palette-so-dark-mode-uses-deep-blue-accents-and-darker-blue-tinted-backgrounds-while-maintaining-readable-contrast-for-text-and-ui-surfaces-cards-popovers-dialogs-sidebar-apply-the-changes-via-the-existing-css-variable-tokens-used-by-tailwind-e-g-in-frontend-src-index-css-so-the-updated-palette-propagates-across-all-pages-and-components-consistently",
+      "title": "Update the app theme tokens to a dark blue palette so dark mode uses deep blue accents and darker blue-tinted backgrounds while maintaining readable contrast for text and UI surfaces (cards, popovers, dialogs, sidebar). Apply the changes via the existing CSS variable tokens used by Tailwind (e.g., in frontend/src/index.css) so the updated palette propagates across all pages and components consistently.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-refresh-the-main-shell-sidebar-header-footer-styling-to-match-the-new-theme-including-improved-navigation-affordances-active-item-hover-state-better-sidebar-header-spacing-and-a-more-premium-look",
-      "title": "Refresh the main shell (sidebar/header/footer) styling to match the new theme, including improved navigation affordances (active item, hover state), better sidebar/header spacing, and a more premium look.",
+      "id": "feature-make-dark-mode-the-default-theme-used-by-the-app-themeprovider-so-users-see-the-dark-blue-theme-by-default-on-first-load-including-authenticated-app-routes-and-the-public-search-route",
+      "title": "Make dark mode the default theme used by the app ThemeProvider so users see the dark blue theme by default on first load (including authenticated app routes and the public search route).",
       "reqIds": [
         "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-key-page-level-ui-sections-at-minimum-dashboard-and-login-to-better-reflect-the-new-stylish-theme-using-consistent-header-hierarchy-icon-treatments-and-subtle-visual-depth-e-g-soft-shadows-gradients-or-tasteful-backgrounds-without-changing-app-functionality",
-      "title": "Update key page-level UI sections (at minimum Dashboard and Login) to better reflect the new stylish theme, using consistent header hierarchy, icon treatments, and subtle visual depth (e.g., soft shadows, gradients, or tasteful backgrounds) without changing app functionality.",
-      "reqIds": [
-        "REQ-3"
       ],
       "version": 1
     }
@@ -39,24 +26,12 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Add Team1/Team2 categorization for team members (new field in member profile) and allow team-wise sorting/filtering in team list views.",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Add customizable Task Type list (admin can manage task types used when creating tasks).",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Update the app theme/UI to be more stylish (visual redesign).",
+      "summary": "Add a dark blue color theme (deep blue, darker backgrounds)",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "projectName": "Update UI theme to a more stylish, modern design",
+  "projectName": "Apply dark blue theme across the UI (deep blue accents, darker backgrounds)",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

@@ -63,8 +63,10 @@ export const UserRole = IDL.Variant({
 });
 export const Type__2 = IDL.Variant({
   'pending' : IDL.Null,
+  'hold' : IDL.Null,
   'completed' : IDL.Null,
   'inProgress' : IDL.Null,
+  'docsPending' : IDL.Null,
 });
 export const Type = IDL.Variant({
   'pending' : IDL.Null,
@@ -91,6 +93,7 @@ export const Task = IDL.Record({
   'taskType' : Type__3,
   'comment' : IDL.Opt(IDL.Text),
   'outstandingAmount' : IDL.Opt(IDL.Nat),
+  'captains' : IDL.Vec(IDL.Principal),
   'assignedName' : IDL.Text,
 });
 export const TeamMemberData = IDL.Record({
@@ -368,6 +371,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateTaskCaptains' : IDL.Func([IDL.Nat32, IDL.Vec(IDL.Principal)], [], []),
   'updateTaskComment' : IDL.Func([IDL.Nat32, IDL.Opt(IDL.Text)], [], []),
   'updateTaskStatus' : IDL.Func([IDL.Nat32, Type__2], [], []),
   'updateTasks' : IDL.Func([IDL.Vec(IDL.Nat32), IDL.Vec(Task)], [], []),
@@ -429,8 +433,10 @@ export const idlFactory = ({ IDL }) => {
   });
   const Type__2 = IDL.Variant({
     'pending' : IDL.Null,
+    'hold' : IDL.Null,
     'completed' : IDL.Null,
     'inProgress' : IDL.Null,
+    'docsPending' : IDL.Null,
   });
   const Type = IDL.Variant({
     'pending' : IDL.Null,
@@ -457,6 +463,7 @@ export const idlFactory = ({ IDL }) => {
     'taskType' : Type__3,
     'comment' : IDL.Opt(IDL.Text),
     'outstandingAmount' : IDL.Opt(IDL.Nat),
+    'captains' : IDL.Vec(IDL.Principal),
     'assignedName' : IDL.Text,
   });
   const TeamMemberData = IDL.Record({
@@ -722,6 +729,11 @@ export const idlFactory = ({ IDL }) => {
     'updateTask' : IDL.Func([IDL.Nat32, Task], [], []),
     'updateTaskBill' : IDL.Func(
         [IDL.Nat32, IDL.Opt(IDL.Text), IDL.Opt(IDL.Nat)],
+        [],
+        [],
+      ),
+    'updateTaskCaptains' : IDL.Func(
+        [IDL.Nat32, IDL.Vec(IDL.Principal)],
         [],
         [],
       ),

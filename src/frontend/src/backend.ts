@@ -154,6 +154,7 @@ export interface Task {
     taskType: Type__3;
     comment?: string;
     outstandingAmount?: bigint;
+    captains: Array<Principal>;
     assignedName: string;
 }
 export interface RevenueTaskDetails {
@@ -307,8 +308,10 @@ export enum Type__1 {
 }
 export enum Type__2 {
     pending = "pending",
+    hold = "hold",
     completed = "completed",
-    inProgress = "inProgress"
+    inProgress = "inProgress",
+    docsPending = "docsPending"
 }
 export enum Type__3 {
     GST = "GST",
@@ -386,6 +389,7 @@ export interface backendInterface {
     updatePaymentStatus(taskId: number, paymentStatus: Type, advanceReceived: bigint | null, bill: string | null): Promise<void>;
     updateTask(taskId: number, updatedTask: Task): Promise<void>;
     updateTaskBill(taskId: number, bill: string | null, advanceReceived: bigint | null): Promise<void>;
+    updateTaskCaptains(taskId: number, captains: Array<Principal>): Promise<void>;
     updateTaskComment(taskId: number, comment: string | null): Promise<void>;
     updateTaskStatus(taskId: number, status: Type__2): Promise<void>;
     updateTasks(taskIds: Uint32Array, updatedTasks: Array<Task>): Promise<void>;
@@ -1178,6 +1182,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateTaskCaptains(arg0: number, arg1: Array<Principal>): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTaskCaptains(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTaskCaptains(arg0, arg1);
+            return result;
+        }
+    }
     async updateTaskComment(arg0: number, arg1: string | null): Promise<void> {
         if (this.processError) {
             try {
@@ -1330,6 +1348,7 @@ function from_candid_record_n32(_uploadFile: (file: ExternalBlob) => Promise<Uin
     taskType: _Type__3;
     comment: [] | [string];
     outstandingAmount: [] | [bigint];
+    captains: Array<Principal>;
     assignedName: string;
 }): {
     id: number;
@@ -1351,6 +1370,7 @@ function from_candid_record_n32(_uploadFile: (file: ExternalBlob) => Promise<Uin
     taskType: Type__3;
     comment?: string;
     outstandingAmount?: bigint;
+    captains: Array<Principal>;
     assignedName: string;
 } {
     return {
@@ -1373,6 +1393,7 @@ function from_candid_record_n32(_uploadFile: (file: ExternalBlob) => Promise<Uin
         taskType: from_candid_Type__3_n41(_uploadFile, _downloadFile, value.taskType),
         comment: record_opt_to_undefined(from_candid_opt_n37(_uploadFile, _downloadFile, value.comment)),
         outstandingAmount: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.outstandingAmount)),
+        captains: value.captains,
         assignedName: value.assignedName
     };
 }
@@ -1649,11 +1670,15 @@ function from_candid_record_n89(_uploadFile: (file: ExternalBlob) => Promise<Uin
 function from_candid_variant_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     pending: null;
 } | {
+    hold: null;
+} | {
     completed: null;
 } | {
     inProgress: null;
+} | {
+    docsPending: null;
 }): Type__2 {
-    return "pending" in value ? Type__2.pending : "completed" in value ? Type__2.completed : "inProgress" in value ? Type__2.inProgress : value;
+    return "pending" in value ? Type__2.pending : "hold" in value ? Type__2.hold : "completed" in value ? Type__2.completed : "inProgress" in value ? Type__2.inProgress : "docsPending" in value ? Type__2.docsPending : value;
 }
 function from_candid_variant_n36(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     pending: null;
@@ -1868,6 +1893,7 @@ function to_candid_record_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     taskType: Type__3;
     comment?: string;
     outstandingAmount?: bigint;
+    captains: Array<Principal>;
     assignedName: string;
 }): {
     id: number;
@@ -1889,6 +1915,7 @@ function to_candid_record_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     taskType: _Type__3;
     comment: [] | [string];
     outstandingAmount: [] | [bigint];
+    captains: Array<Principal>;
     assignedName: string;
 } {
     return {
@@ -1911,6 +1938,7 @@ function to_candid_record_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         taskType: to_candid_Type__3_n15(_uploadFile, _downloadFile, value.taskType),
         comment: value.comment ? candid_some(value.comment) : candid_none(),
         outstandingAmount: value.outstandingAmount ? candid_some(value.outstandingAmount) : candid_none(),
+        captains: value.captains,
         assignedName: value.assignedName
     };
 }
@@ -2063,16 +2091,24 @@ function to_candid_variant_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint
 function to_candid_variant_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Type__2): {
     pending: null;
 } | {
+    hold: null;
+} | {
     completed: null;
 } | {
     inProgress: null;
+} | {
+    docsPending: null;
 } {
     return value == Type__2.pending ? {
         pending: null
+    } : value == Type__2.hold ? {
+        hold: null
     } : value == Type__2.completed ? {
         completed: null
     } : value == Type__2.inProgress ? {
         inProgress: null
+    } : value == Type__2.docsPending ? {
+        docsPending: null
     } : value;
 }
 function to_candid_variant_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Type): {

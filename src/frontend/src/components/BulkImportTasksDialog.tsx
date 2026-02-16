@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Download, Upload, Loader2 } from 'lucide-react';
 import { Type, Type__1, Type__2, Type__3, type Task } from '../backend';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { downloadTaskTemplate, parseExcelFile } from '../lib/excelTemplates';
+import { parseExcelFile, downloadTaskTemplate } from '../lib/excelTemplates';
 import { Principal } from '@dfinity/principal';
 import { toast } from 'sonner';
 
@@ -18,490 +18,316 @@ interface BulkImportTasksDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface PreviewTask {
-  clientName: string;
-  title: string;
-  taskType: string;
-  subType: string;
-  status: string;
-  comment: string;
-  assignedName: string;
-  dueDate: string;
-  assignmentDate: string;
-  bill: string;
-  advanceReceived: string;
-  paymentStatus: string;
-  error?: string;
-}
-
 export default function BulkImportTasksDialog({ open, onOpenChange }: BulkImportTasksDialogProps) {
-  const [csvData, setCsvData] = useState('');
-  const [error, setError] = useState('');
-  const [previewData, setPreviewData] = useState<PreviewTask[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
-  const bulkImportTasks = useBulkImportTasks();
+  const [file, setFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<string[][]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const bulkImport = useBulkImportTasks();
   const { data: clients = [] } = useGetClients();
   const { data: teamMembers = [] } = useGetAllTeamMembers();
 
-  const validateTaskType = (type: string): Type__3 | null => {
-    const normalized = type.toLowerCase().trim();
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+    setErrors([]);
+    setIsProcessing(true);
+
+    try {
+      const rows = await parseExcelFile(selectedFile);
+      setPreviewData(rows.slice(0, 6));
+    } catch (error) {
+      setErrors([`Failed to parse file: ${(error as Error).message}`]);
+      setPreviewData([]);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const validateStatus = (statusStr: string): Type__2 | null => {
+    const normalized = statusStr.toLowerCase().replace(/\s+/g, '');
+    
+    if (normalized === 'pending') return Type__2.pending;
+    if (normalized === 'inprogress') return Type__2.inProgress;
+    if (normalized === 'completed') return Type__2.completed;
+    if (normalized === 'docspending') return Type__2.docsPending;
+    if (normalized === 'hold') return Type__2.hold;
+    
+    return null;
+  };
+
+  const validateTaskType = (typeStr: string): Type__3 | null => {
+    const normalized = typeStr.toLowerCase().replace(/\s+/g, '');
+    
     if (normalized === 'gst') return Type__3.GST;
     if (normalized === 'audit') return Type__3.Audit;
-    if (normalized === 'it notice' || normalized === 'itnotice') return Type__3.ITNotice;
+    if (normalized === 'itnotice') return Type__3.ITNotice;
     if (normalized === 'tds') return Type__3.TDS;
     if (normalized === 'accounts') return Type__3.Accounts;
-    if (normalized === 'form filing' || normalized === 'formfiling') return Type__3.FormFiling;
-    if (normalized === 'ca certificate' || normalized === 'cacertificate') return Type__3.CACertificate;
+    if (normalized === 'formfiling') return Type__3.FormFiling;
+    if (normalized === 'cacertificate') return Type__3.CACertificate;
     if (normalized === 'other' || normalized === 'others') return Type__3.Other;
+    
     return null;
   };
 
-  const validateStatus = (status: string): Type__2 | null => {
-    const normalized = status.toLowerCase().trim();
-    if (normalized === 'pending') return Type__2.pending;
-    if (normalized === 'in progress' || normalized === 'inprogress') return Type__2.inProgress;
-    if (normalized === 'completed') return Type__2.completed;
-    return null;
-  };
-
-  const validatePaymentStatus = (status: string): Type | null => {
-    const normalized = status.toLowerCase().trim();
+  const validatePaymentStatus = (statusStr: string): Type | null => {
+    const normalized = statusStr.toLowerCase().replace(/\s+/g, '');
+    
     if (normalized === 'pending') return Type.pending;
     if (normalized === 'paid') return Type.paid;
     if (normalized === 'overdue') return Type.overdue;
+    
     return null;
-  };
-
-  const validateClientName = (clientName: string): boolean => {
-    const trimmedName = clientName.trim();
-    return clients.some((c) => c.name.toLowerCase() === trimmedName.toLowerCase());
-  };
-
-  const findTeamMemberByName = (name: string): { principal: Principal; name: string } | null => {
-    const trimmedName = name.trim();
-    const member = teamMembers.find((m) => m.name.toLowerCase() === trimmedName.toLowerCase());
-    if (member) {
-      return { principal: member.principal, name: member.name };
-    }
-    return null;
-  };
-
-  const parseCSV = (data: string): PreviewTask[] => {
-    const lines = data.trim().split('\n');
-    const tasks: PreviewTask[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const parts = line.split(',').map((p) => p.trim());
-      if (parts.length < 5) {
-        tasks.push({
-          clientName: parts[0] || '',
-          title: parts[1] || '',
-          taskType: parts[2] || '',
-          subType: parts[3] || '',
-          status: parts[4] || '',
-          comment: parts[5] || '',
-          assignedName: parts[6] || '',
-          dueDate: parts[7] || '',
-          assignmentDate: parts[8] || '',
-          bill: parts[9] || '',
-          advanceReceived: parts[10] || '',
-          paymentStatus: parts[11] || 'pending',
-          error: `Invalid format on line ${i + 1}. Expected: ClientName, Title, TaskType, SubType, Status, Comment, AssignedName, DueDate, AssignmentDate, Bill, AdvanceReceived, PaymentStatus`,
-        });
-        continue;
-      }
-
-      const [clientName, title, taskType, subType, status, comment = '', assignedName, dueDate = '', assignmentDate = '', bill = '', advanceReceived = '', paymentStatus = 'pending'] = parts;
-      const errors: string[] = [];
-
-      if (!validateClientName(clientName)) errors.push('Client not found');
-      if (!title) errors.push('Title required');
-      if (!validateTaskType(taskType)) errors.push('Invalid Task Type');
-      if (!validateStatus(status)) errors.push('Invalid Status');
-      if (!findTeamMemberByName(assignedName)) errors.push('Team member not found');
-      if (paymentStatus && !validatePaymentStatus(paymentStatus)) errors.push('Invalid Payment Status');
-
-      tasks.push({
-        clientName,
-        title,
-        taskType,
-        subType,
-        status,
-        comment,
-        assignedName,
-        dueDate,
-        assignmentDate,
-        bill,
-        advanceReceived,
-        paymentStatus,
-        error: errors.length > 0 ? errors.join(', ') : undefined,
-      });
-    }
-
-    return tasks;
-  };
-
-  const handleCSVPreview = () => {
-    setError('');
-    if (!csvData.trim()) {
-      setError('Please enter CSV data');
-      return;
-    }
-
-    const tasks = parseCSV(csvData);
-    if (tasks.length === 0) {
-      setError('No valid tasks found in CSV data');
-      return;
-    }
-
-    setPreviewData(tasks);
-    setShowPreview(true);
-  };
-
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError('');
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const rows = await parseExcelFile(file);
-      const tasks: PreviewTask[] = [];
-      const startRow = rows[0] && typeof rows[0][0] === 'string' && rows[0][0].toLowerCase().includes('client') ? 1 : 0;
-
-      for (let i = startRow; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length === 0) continue;
-
-        const clientName = String(row[0] || '').trim();
-        const title = String(row[1] || '').trim();
-        const taskType = String(row[2] || '').trim();
-        const subType = String(row[3] || '').trim();
-        const status = String(row[4] || 'pending').trim();
-        const comment = String(row[5] || '').trim();
-        const assignedName = String(row[6] || '').trim();
-        const dueDate = String(row[7] || '').trim();
-        const assignmentDate = String(row[8] || '').trim();
-        const bill = String(row[9] || '').trim();
-        const advanceReceived = String(row[10] || '').trim();
-        const paymentStatus = String(row[11] || 'pending').trim();
-
-        const errors: string[] = [];
-        if (!validateClientName(clientName)) errors.push('Client not found');
-        if (!title) errors.push('Title required');
-        if (!validateTaskType(taskType)) errors.push('Invalid Task Type');
-        if (!validateStatus(status)) errors.push('Invalid Status');
-        if (!findTeamMemberByName(assignedName)) errors.push('Team member not found');
-        if (paymentStatus && !validatePaymentStatus(paymentStatus)) errors.push('Invalid Payment Status');
-
-        tasks.push({
-          clientName,
-          title,
-          taskType,
-          subType,
-          status,
-          comment,
-          assignedName,
-          dueDate,
-          assignmentDate,
-          bill,
-          advanceReceived,
-          paymentStatus,
-          error: errors.length > 0 ? errors.join(', ') : undefined,
-        });
-      }
-
-      if (tasks.length === 0) {
-        setError('No valid tasks found in file');
-        return;
-      }
-
-      setPreviewData(tasks);
-      setShowPreview(true);
-    } catch (err) {
-      setError((err as Error).message);
-    }
   };
 
   const handleImport = async () => {
-    const validTasks = previewData.filter((t) => !t.error);
-    if (validTasks.length === 0) {
-      setError('No valid tasks to import');
-      return;
-    }
+    if (!file) return;
+
+    setIsProcessing(true);
+    setErrors([]);
 
     try {
-      const tasks: Task[] = validTasks.map((t) => {
-        const member = findTeamMemberByName(t.assignedName);
-        
-        // Convert due date string to nanoseconds timestamp
-        let dueDateNano: bigint | undefined = undefined;
-        if (t.dueDate && t.dueDate.trim()) {
+      const rows = await parseExcelFile(file);
+      const validationErrors: string[] = [];
+      const tasksToImport: Task[] = [];
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.length < 7 || !row[0]?.trim()) continue;
+
+        const [clientName, title, taskTypeStr, subType, statusStr, comment, assignedName, dueDateStr, assignmentDateStr, billStr, advanceReceivedStr, paymentStatusStr] = row;
+
+        const client = clients.find((c) => c.name.toLowerCase() === clientName.toLowerCase());
+        if (!client) {
+          validationErrors.push(`Row ${i + 1}: Client "${clientName}" not found`);
+          continue;
+        }
+
+        const member = teamMembers.find((m) => m.name.toLowerCase() === assignedName.toLowerCase());
+        if (!member) {
+          validationErrors.push(`Row ${i + 1}: Team member "${assignedName}" not found`);
+          continue;
+        }
+
+        const taskType = validateTaskType(taskTypeStr);
+        if (!taskType) {
+          validationErrors.push(`Row ${i + 1}: Invalid task type "${taskTypeStr}"`);
+          continue;
+        }
+
+        const status = validateStatus(statusStr);
+        if (!status) {
+          validationErrors.push(`Row ${i + 1}: Invalid status "${statusStr}"`);
+          continue;
+        }
+
+        const paymentStatus = validatePaymentStatus(paymentStatusStr || 'pending');
+        if (!paymentStatus) {
+          validationErrors.push(`Row ${i + 1}: Invalid payment status "${paymentStatusStr}"`);
+          continue;
+        }
+
+        let dueDate: bigint | undefined = undefined;
+        if (dueDateStr && dueDateStr.trim()) {
           try {
-            const dateObj = new Date(t.dueDate.trim());
+            const dateObj = new Date(dueDateStr.trim());
             if (!isNaN(dateObj.getTime())) {
-              dueDateNano = BigInt(dateObj.getTime()) * BigInt(1000000);
+              dueDate = BigInt(dateObj.getTime()) * BigInt(1000000);
             }
-          } catch (e) {
-            console.warn('Invalid due date:', t.dueDate);
+          } catch (error) {
+            validationErrors.push(`Row ${i + 1}: Invalid due date format "${dueDateStr}"`);
+            continue;
           }
         }
 
-        // Convert manual assignment date string to nanoseconds timestamp
-        let manualAssignmentDateNano: bigint | undefined = undefined;
-        if (t.assignmentDate && t.assignmentDate.trim()) {
+        let manualAssignmentDate: bigint | undefined = undefined;
+        if (assignmentDateStr && assignmentDateStr.trim()) {
           try {
-            const dateObj = new Date(t.assignmentDate.trim());
+            const dateObj = new Date(assignmentDateStr.trim());
             if (!isNaN(dateObj.getTime())) {
-              manualAssignmentDateNano = BigInt(dateObj.getTime()) * BigInt(1000000);
+              manualAssignmentDate = BigInt(dateObj.getTime()) * BigInt(1000000);
             }
-          } catch (e) {
-            console.warn('Invalid assignment date:', t.assignmentDate);
+          } catch (error) {
+            validationErrors.push(`Row ${i + 1}: Invalid assignment date format "${assignmentDateStr}"`);
+            continue;
           }
         }
 
-        // Parse advance received amount
-        let advanceReceivedAmount: bigint | undefined = undefined;
-        if (t.advanceReceived && t.advanceReceived.trim()) {
-          try {
-            const amount = parseInt(t.advanceReceived.trim(), 10);
-            if (!isNaN(amount) && amount >= 0) {
-              advanceReceivedAmount = BigInt(amount);
-            }
-          } catch (e) {
-            console.warn('Invalid advance received amount:', t.advanceReceived);
-          }
-        }
+        const bill = billStr?.trim() || undefined;
+        const advanceReceived = advanceReceivedStr?.trim() ? BigInt(Math.floor(parseFloat(advanceReceivedStr))) : undefined;
 
-        return {
+        tasksToImport.push({
           id: 0,
-          clientId: 0,
-          clientName: t.clientName.trim(),
-          title: t.title.trim(),
-          taskType: validateTaskType(t.taskType)!,
-          status: validateStatus(t.status)!,
-          comment: t.comment.trim() || undefined,
-          assignedTo: member!.principal,
-          assignedName: member!.name,
-          createdAt: BigInt(0),
+          clientId: client.id,
+          clientName: client.name,
+          title: title.trim(),
+          taskType,
+          status,
+          comment: comment?.trim() || undefined,
+          assignedTo: member.principal,
+          assignedName: member.name,
+          captains: [],
+          createdAt: BigInt(Date.now()) * BigInt(1000000),
           recurring: Type__1.none,
-          subType: t.subType.trim() || undefined,
-          dueDate: dueDateNano,
+          subType: subType?.trim() || undefined,
+          bill,
+          paymentStatus,
+          dueDate,
           assignmentDate: undefined,
           completionDate: undefined,
-          manualAssignmentDate: manualAssignmentDateNano,
-          bill: t.bill.trim() || undefined,
-          paymentStatus: validatePaymentStatus(t.paymentStatus) || Type.pending,
-          advanceReceived: advanceReceivedAmount,
+          manualAssignmentDate,
+          advanceReceived,
           outstandingAmount: undefined,
-        };
+        });
+      }
+
+      if (validationErrors.length > 0) {
+        setErrors(validationErrors);
+        setIsProcessing(false);
+        return;
+      }
+
+      if (tasksToImport.length === 0) {
+        setErrors(['No valid tasks found in the file']);
+        setIsProcessing(false);
+        return;
+      }
+
+      bulkImport.mutate(tasksToImport, {
+        onSuccess: () => {
+          toast.success(`Successfully imported ${tasksToImport.length} task${tasksToImport.length !== 1 ? 's' : ''}`);
+          onOpenChange(false);
+          setFile(null);
+          setPreviewData([]);
+        },
+        onError: (error) => {
+          setErrors([`Import failed: ${error.message}`]);
+        },
+        onSettled: () => {
+          setIsProcessing(false);
+        },
       });
-
-      await bulkImportTasks.mutateAsync(tasks);
-      
-      // Show success message with count
-      toast.success(`Successfully imported ${validTasks.length} task${validTasks.length !== 1 ? 's' : ''}`);
-      
-      // Reset state and close dialog
-      setCsvData('');
-      setError('');
-      setPreviewData([]);
-      setShowPreview(false);
-      onOpenChange(false);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(`Failed to import tasks: ${errorMessage}`);
-      toast.error(`Import failed: ${errorMessage}`);
+    } catch (error) {
+      setErrors([`Failed to process file: ${(error as Error).message}`]);
+      setIsProcessing(false);
     }
-  };
-
-  const handleCancel = () => {
-    setCsvData('');
-    setError('');
-    setPreviewData([]);
-    setShowPreview(false);
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Bulk Import Tasks</DialogTitle>
           <DialogDescription>
-            Import multiple tasks using CSV or Excel format
+            Upload a CSV/Excel file to import multiple tasks at once
           </DialogDescription>
         </DialogHeader>
 
-        {!showPreview ? (
-          <Tabs defaultValue="excel" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="excel">Excel Upload</TabsTrigger>
-              <TabsTrigger value="csv">CSV Input</TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue="upload" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="upload">Upload File</TabsTrigger>
+            <TabsTrigger value="template">Download Template</TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="excel" className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Upload Excel File (.xlsx, .xls, .csv)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => downloadTaskTemplate(clients, teamMembers)}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Template
-                  </Button>
-                </div>
-                <Input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleExcelUpload}
-                  className="cursor-pointer"
-                />
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p className="font-medium">Excel Format:</p>
-                  <p>Column A: Client Name (required, must match existing client)</p>
-                  <p>Column B: Title (required)</p>
-                  <p>Column C: Task Type (GST/Audit/IT Notice/TDS/Accounts/Form Filing/CA Certificate/Other, required)</p>
-                  <p>Column D: Sub Type (optional)</p>
-                  <p>Column E: Status (Pending/In Progress/Completed, optional, defaults to Pending)</p>
-                  <p>Column F: Comment (optional, task notes)</p>
-                  <p>Column G: Assigned Name (team member name, required)</p>
-                  <p>Column H: Due Date (optional, format: YYYY-MM-DD)</p>
-                  <p>Column I: Assignment Date (optional, format: YYYY-MM-DD)</p>
-                  <p>Column J: Bill (optional, numeric amount)</p>
-                  <p>Column K: Advance Received (optional, numeric amount)</p>
-                  <p>Column L: Payment Status (Pending/Paid/Overdue, optional, defaults to Pending)</p>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="csv" className="space-y-4">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="csv">CSV Data</Label>
-                  <Textarea
-                    id="csv"
-                    placeholder="ABC Enterprises Ltd, Tax Filing, GST, GST Return, Pending, Initial review completed, John Doe, 2026-03-31, 2026-01-15, 50000, 25000, Pending&#10;XYZ Consultants Pvt Ltd, Annual Audit, Audit, Internal Audit, In Progress, Awaiting final documents, Jane Smith, 2026-04-15, 2026-02-01, 100000, 100000, Paid"
-                    value={csvData}
-                    onChange={(e) => setCsvData(e.target.value)}
-                    rows={10}
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium mb-1">Format:</p>
-                  <p>Client Name, Title, Task Type, Sub Type, Status, Comment, Assigned Name, Due Date, Assignment Date, Bill, Advance Received, Payment Status</p>
-                  <p className="mt-2">Task Types: GST, Audit, IT Notice, TDS, Accounts, Form Filing, CA Certificate, Other</p>
-                  <p>Status: Pending, In Progress, Completed (defaults to Pending)</p>
-                  <p>Client Name: Must match existing client (case-insensitive)</p>
-                  <p>Comment: Optional task notes (appears after Status)</p>
-                  <p>Assigned Name: Team member name (must match existing team member)</p>
-                  <p>Due Date: Format YYYY-MM-DD (e.g., 2026-03-31)</p>
-                  <p>Assignment Date: Format YYYY-MM-DD (e.g., 2026-01-15) - optional manual assignment date</p>
-                  <p>Bill: Numeric amount (e.g., 50000)</p>
-                  <p>Advance Received: Numeric amount (e.g., 25000)</p>
-                  <p>Payment Status: Pending, Paid, Overdue (defaults to Pending)</p>
-                </div>
-                <Button onClick={handleCSVPreview} className="w-full">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Preview Data
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Preview ({previewData.length} tasks)</h3>
-              <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>
-                Back to Upload
-              </Button>
+          <TabsContent value="upload" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="file">Select CSV/Excel File</Label>
+              <Input
+                id="file"
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileChange}
+                disabled={isProcessing || bulkImport.isPending}
+              />
             </div>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="max-h-96 overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted sticky top-0">
-                    <tr>
-                      <th className="text-left p-2 font-medium">Client Name</th>
-                      <th className="text-left p-2 font-medium">Title</th>
-                      <th className="text-left p-2 font-medium">Type</th>
-                      <th className="text-left p-2 font-medium">Sub Type</th>
-                      <th className="text-left p-2 font-medium">Status</th>
-                      <th className="text-left p-2 font-medium">Comment</th>
-                      <th className="text-left p-2 font-medium">Assigned To</th>
-                      <th className="text-left p-2 font-medium">Due Date</th>
-                      <th className="text-left p-2 font-medium">Assign Date</th>
-                      <th className="text-left p-2 font-medium">Bill</th>
-                      <th className="text-left p-2 font-medium">Advance</th>
-                      <th className="text-left p-2 font-medium">Payment</th>
-                      <th className="text-left p-2 font-medium">Validation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewData.map((task, idx) => (
-                      <tr key={idx} className={task.error ? 'bg-destructive/10' : ''}>
-                        <td className="p-2 border-t">{task.clientName}</td>
-                        <td className="p-2 border-t">{task.title}</td>
-                        <td className="p-2 border-t">{task.taskType}</td>
-                        <td className="p-2 border-t">{task.subType || '-'}</td>
-                        <td className="p-2 border-t">{task.status}</td>
-                        <td className="p-2 border-t max-w-[150px] truncate">{task.comment || '-'}</td>
-                        <td className="p-2 border-t">{task.assignedName}</td>
-                        <td className="p-2 border-t">{task.dueDate || '-'}</td>
-                        <td className="p-2 border-t">{task.assignmentDate || '-'}</td>
-                        <td className="p-2 border-t">{task.bill || '-'}</td>
-                        <td className="p-2 border-t">{task.advanceReceived || '-'}</td>
-                        <td className="p-2 border-t">{task.paymentStatus || 'Pending'}</td>
-                        <td className="p-2 border-t">
-                          {task.error ? (
-                            <span className="text-destructive text-xs">{task.error}</span>
-                          ) : (
-                            <span className="text-green-600 text-xs">✓ Valid</span>
-                          )}
-                        </td>
-                      </tr>
+
+            {errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-semibold mb-2">Validation Errors:</div>
+                  <ul className="list-disc list-inside space-y-1">
+                    {errors.map((error, index) => (
+                      <li key={index} className="text-sm">{error}</li>
                     ))}
-                  </tbody>
-                </table>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {previewData.length > 0 && (
+              <div className="space-y-2">
+                <Label>Preview (first 5 rows)</Label>
+                <div className="border rounded-md overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        {previewData[0].map((header, index) => (
+                          <th key={index} className="px-4 py-2 text-left font-medium">
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewData.slice(1).map((row, rowIndex) => (
+                        <tr key={rowIndex} className="border-t">
+                          {row.map((cell, cellIndex) => (
+                            <td key={cellIndex} className="px-4 py-2">
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="template" className="space-y-4">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Download the template file to see the required format for bulk import.
+              </p>
+              <Button onClick={() => downloadTaskTemplate(clients, teamMembers)} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium">Template includes:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Sample data with correct formatting</li>
+                  <li>List of available clients and team members</li>
+                  <li>Valid values for task types, statuses, and payment statuses</li>
+                  <li>Date format examples (YYYY-MM-DD)</li>
+                </ul>
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {previewData.filter((t) => !t.error).length} valid tasks will be imported
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={handleCancel}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing || bulkImport.isPending}>
             Cancel
           </Button>
-          {showPreview && (
-            <Button
-              onClick={handleImport}
-              disabled={bulkImportTasks.isPending || previewData.filter((t) => !t.error).length === 0}
-            >
-              {bulkImportTasks.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                `Import ${previewData.filter((t) => !t.error).length} Tasks`
-              )}
-            </Button>
-          )}
+          <Button onClick={handleImport} disabled={!file || isProcessing || bulkImport.isPending}>
+            {isProcessing || bulkImport.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {bulkImport.isPending ? 'Importing...' : 'Processing...'}
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Import Tasks
+              </>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

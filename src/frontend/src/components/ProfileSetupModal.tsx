@@ -18,7 +18,10 @@ export default function ProfileSetupModal() {
 
   return (
     <Dialog open={true}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent 
+        className="sm:max-w-md bg-popover text-popover-foreground border-border" 
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Welcome to TaxConsult Pro</DialogTitle>
           <DialogDescription>Please enter your name to complete your profile setup.</DialogDescription>

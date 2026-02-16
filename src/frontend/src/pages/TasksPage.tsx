@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useGetClients, useFilterTasks, useIsCallerAdmin, useGetAllTeamMembers, useGetTasksForExport, useGetSelectedTasksForExport, useSearchTasksByDate } from '../hooks/useQueries';
-import { Plus, Upload, Download, X, FileDown, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { Plus, Upload, Download, X, FileDown, Calendar as CalendarIcon, Loader2, Edit } from 'lucide-react';
 import { Type, Type__2, Type__3 } from '../backend';
 import TaskList from '../components/TaskList';
 import CreateTaskDialog from '../components/CreateTaskDialog';
 import BulkImportTasksDialog from '../components/BulkImportTasksDialog';
+import BulkEditTasksDialog from '../components/BulkEditTasksDialog';
 import { downloadTaskTemplate, exportTasksToExcel } from '../lib/excelTemplates';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -25,6 +26,7 @@ export default function TasksPage() {
   const { data: exportTasks = [] } = useGetTasksForExport();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingSelected, setIsExportingSelected] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
@@ -215,6 +217,24 @@ export default function TasksPage() {
     }
   };
 
+  const handleBulkEditClick = () => {
+    if (selectedTasks.size === 0) {
+      toast.error('Please select at least one task to edit');
+      return;
+    }
+    setShowBulkEdit(true);
+  };
+
+  const handleBulkEditClose = () => {
+    setShowBulkEdit(false);
+    setSelectedTasks(new Set());
+  };
+
+  // Get selected task objects for bulk edit
+  const selectedTaskObjects = useMemo(() => {
+    return filteredTasks.filter(task => selectedTasks.has(task.id));
+  }, [filteredTasks, selectedTasks]);
+
   const isLoadingDateFilter = dateFilter && (isDateSearchLoading || isDateSearchFetching);
 
   return (
@@ -226,15 +246,25 @@ export default function TasksPage() {
         </div>
         <div className="flex gap-2">
           {isAdmin && selectedTasks.size > 0 && (
-            <Button 
-              onClick={handleExportSelectedTasks} 
-              disabled={isExportingSelected} 
-              variant="default"
-              className="shadow-soft"
-            >
-              <FileDown className="h-4 w-4 mr-2" />
-              {isExportingSelected ? 'Exporting...' : `Export Selected (${selectedTasks.size})`}
-            </Button>
+            <>
+              <Button 
+                onClick={handleBulkEditClick} 
+                variant="default"
+                className="shadow-soft"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Bulk Edit ({selectedTasks.size})
+              </Button>
+              <Button 
+                onClick={handleExportSelectedTasks} 
+                disabled={isExportingSelected} 
+                variant="default"
+                className="shadow-soft"
+              >
+                <FileDown className="h-4 w-4 mr-2" />
+                {isExportingSelected ? 'Exporting...' : `Export Selected (${selectedTasks.size})`}
+              </Button>
+            </>
           )}
           <Button onClick={handleExportTasks} disabled={isExporting || filteredTasks.length === 0} variant="outline" className="shadow-soft">
             <FileDown className="h-4 w-4 mr-2" />
@@ -415,18 +445,6 @@ export default function TasksPage() {
                         onSelect={setDateFilter}
                         initialFocus
                       />
-                      {dateFilter && (
-                        <div className="p-3 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setDateFilter(undefined)}
-                          >
-                            Clear Date
-                          </Button>
-                        </div>
-                      )}
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -437,34 +455,40 @@ export default function TasksPage() {
           {/* Task Tabs */}
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid w-full grid-cols-4 mb-6">
-              <TabsTrigger value="all" className="font-medium">All Tasks ({filteredTasks.length})</TabsTrigger>
-              <TabsTrigger value="pending" className="font-medium">Pending ({pendingTasks.length})</TabsTrigger>
-              <TabsTrigger value="inProgress" className="font-medium">In Progress ({inProgressTasks.length})</TabsTrigger>
-              <TabsTrigger value="completed" className="font-medium">Completed ({completedTasks.length})</TabsTrigger>
+              <TabsTrigger value="all">All Tasks ({filteredTasks.length})</TabsTrigger>
+              <TabsTrigger value="pending">Pending ({pendingTasks.length})</TabsTrigger>
+              <TabsTrigger value="inProgress">In Progress ({inProgressTasks.length})</TabsTrigger>
+              <TabsTrigger value="completed">Completed ({completedTasks.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all">
-              <TaskList tasks={filteredTasks} selectedTasks={selectedTasks} onSelectionChange={setSelectedTasks} />
+              <TaskList tasks={filteredTasks} onSelectionChange={setSelectedTasks} />
             </TabsContent>
 
             <TabsContent value="pending">
-              <TaskList tasks={pendingTasks} selectedTasks={selectedTasks} onSelectionChange={setSelectedTasks} />
+              <TaskList tasks={pendingTasks} onSelectionChange={setSelectedTasks} />
             </TabsContent>
 
             <TabsContent value="inProgress">
-              <TaskList tasks={inProgressTasks} selectedTasks={selectedTasks} onSelectionChange={setSelectedTasks} />
+              <TaskList tasks={inProgressTasks} onSelectionChange={setSelectedTasks} />
             </TabsContent>
 
             <TabsContent value="completed">
-              <TaskList tasks={completedTasks} selectedTasks={selectedTasks} onSelectionChange={setSelectedTasks} />
+              <TaskList tasks={completedTasks} onSelectionChange={setSelectedTasks} showCompletedColumn />
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
 
-      {showCreateDialog && <CreateTaskDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />}
-      {showBulkImport && <BulkImportTasksDialog open={showBulkImport} onOpenChange={setShowBulkImport} />}
+      <CreateTaskDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
+      <BulkImportTasksDialog open={showBulkImport} onOpenChange={setShowBulkImport} />
+      {showBulkEdit && (
+        <BulkEditTasksDialog 
+          tasks={selectedTaskObjects} 
+          open={showBulkEdit} 
+          onOpenChange={handleBulkEditClose} 
+        />
+      )}
     </div>
   );
 }
-

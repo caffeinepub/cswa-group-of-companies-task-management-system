@@ -65,6 +65,7 @@ export interface Task {
     taskType: Type__3;
     comment?: string;
     outstandingAmount?: bigint;
+    captains: Array<Principal>;
     assignedName: string;
 }
 export interface RevenueTaskDetails {
@@ -214,8 +215,10 @@ export enum Type__1 {
 }
 export enum Type__2 {
     pending = "pending",
+    hold = "hold",
     completed = "completed",
-    inProgress = "inProgress"
+    inProgress = "inProgress",
+    docsPending = "docsPending"
 }
 export enum Type__3 {
     GST = "GST",
@@ -286,6 +289,7 @@ export interface backendInterface {
     updatePaymentStatus(taskId: number, paymentStatus: Type, advanceReceived: bigint | null, bill: string | null): Promise<void>;
     updateTask(taskId: number, updatedTask: Task): Promise<void>;
     updateTaskBill(taskId: number, bill: string | null, advanceReceived: bigint | null): Promise<void>;
+    updateTaskCaptains(taskId: number, captains: Array<Principal>): Promise<void>;
     updateTaskComment(taskId: number, comment: string | null): Promise<void>;
     updateTaskStatus(taskId: number, status: Type__2): Promise<void>;
     updateTasks(taskIds: Uint32Array, updatedTasks: Array<Task>): Promise<void>;

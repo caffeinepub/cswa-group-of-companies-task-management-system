@@ -197,7 +197,7 @@ export function downloadTaskTemplate(clients: Client[], teamMembers: TeamMember[
   }
 
   csvContent += '\n# Task Types: GST, Audit, IT Notice, TDS, Accounts, Form Filing, CA Certificate, Other\n';
-  csvContent += '# Status: Pending, In Progress, Completed\n';
+  csvContent += '# Status: Pending, In Progress, Completed, Docs Pending, Hold\n';
   csvContent += '# Payment Status: Pending, Paid, Overdue\n';
   csvContent += '# Due Date: Format YYYY-MM-DD (e.g., 2026-03-31)\n';
   csvContent += '# Assignment Date: Format YYYY-MM-DD (e.g., 2026-01-15) - optional manual assignment date\n';
@@ -268,6 +268,10 @@ function getTaskStatusLabel(status: Type__2): string {
       return 'In Progress';
     case Type__2.completed:
       return 'Completed';
+    case Type__2.docsPending:
+      return 'Docs Pending';
+    case Type__2.hold:
+      return 'Hold';
     default:
       return 'Unknown';
   }

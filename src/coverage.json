@@ -1,59 +1,37 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-11T19:36:50.648Z",
+  "generatedAt": "2026-02-16T09:53:58.218Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 2,
+    "implemented": 2,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Redesign the app’s visual theme to look more stylish and modern across all pages (Dashboard, Clients, Tasks, To‑Do, Team, Login) by updating global theme tokens and applying consistent spacing, typography, shadows, and hover/active states.",
+        "summary": "Update the app theme tokens to a dark blue palette so dark mode uses deep blue accents and darker blue-tinted backgrounds while maintaining readable contrast for text and UI surfaces (cards, popovers, dialogs, sidebar). Apply the changes via the existing CSS variable tokens used by Tailwind (e.g., in frontend/src/index.css) so the updated palette propagates across all pages and components consistently.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/index.css",
-          "frontend/tailwind.config.js",
-          "frontend/src/pages/ClientsPage.tsx",
-          "frontend/src/pages/TasksPage.tsx",
-          "frontend/src/pages/ToDoPage.tsx",
-          "frontend/src/pages/TeamPage.tsx",
-          "frontend/src/pages/PublicSearchPage.tsx"
+          "frontend/src/index.css"
         ],
         "matchedFiles": [
           "frontend/src/index.css",
-          "frontend/tailwind.config.js",
-          "frontend/src/pages/ClientsPage.tsx",
-          "frontend/src/pages/TasksPage.tsx",
-          "frontend/src/pages/ToDoPage.tsx",
-          "frontend/src/pages/TeamPage.tsx"
+          "frontend/src/index.css"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Refresh the main shell (sidebar/header/footer) styling to match the new theme, including improved navigation affordances (active item, hover state), better sidebar/header spacing, and a more premium look.",
+        "summary": "Make dark mode the default theme used by the app ThemeProvider so users see the dark blue theme by default on first load (including authenticated app routes and the public search route).",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/MainLayout.tsx"
+          "frontend/src/App.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/MainLayout.tsx"
-        ]
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Update key page-level UI sections (at minimum Dashboard and Login) to better reflect the new stylish theme, using consistent header hierarchy, icon treatments, and subtle visual depth (e.g., soft shadows, gradients, or tasteful backgrounds) without changing app functionality.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/DashboardPage.tsx",
-          "frontend/src/pages/LoginPage.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/DashboardPage.tsx",
-          "frontend/src/pages/LoginPage.tsx"
+          "frontend/src/App.tsx"
         ]
       }
     ]
@@ -63,15 +41,8 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/components/MainLayout.tsx",
+    "frontend/src/App.tsx",
     "frontend/src/index.css",
-    "frontend/src/pages/ClientsPage.tsx",
-    "frontend/src/pages/DashboardPage.tsx",
-    "frontend/src/pages/LoginPage.tsx",
-    "frontend/src/pages/TasksPage.tsx",
-    "frontend/src/pages/TeamPage.tsx",
-    "frontend/src/pages/ToDoPage.tsx",
-    "frontend/tailwind.config.js",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

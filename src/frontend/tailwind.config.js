@@ -49,15 +49,23 @@ export default {
                     DEFAULT: 'oklch(var(--card))',
                     foreground: 'oklch(var(--card-foreground))'
                 },
+                success: {
+                    DEFAULT: 'oklch(var(--success) / <alpha-value>)',
+                    foreground: 'oklch(var(--success-foreground))'
+                },
+                warning: {
+                    DEFAULT: 'oklch(var(--warning) / <alpha-value>)',
+                    foreground: 'oklch(var(--warning-foreground))'
+                },
                 chart: {
                     1: 'oklch(var(--chart-1))',
                     2: 'oklch(var(--chart-2))',
                     3: 'oklch(var(--chart-3))',
-                    4: 'oklch(var(--chart-5))',
+                    4: 'oklch(var(--chart-4))',
                     5: 'oklch(var(--chart-5))'
                 },
                 sidebar: {
-                    DEFAULT: 'oklch(var(--sidebar))',
+                    DEFAULT: 'oklch(var(--sidebar-background))',
                     foreground: 'oklch(var(--sidebar-foreground))',
                     primary: 'oklch(var(--sidebar-primary))',
                     'primary-foreground': 'oklch(var(--sidebar-primary-foreground))',
@@ -76,7 +84,6 @@ export default {
                 xs: '0 1px 2px 0 rgba(0,0,0,0.05)',
                 'soft': '0 2px 12px -2px rgba(0,0,0,0.08), 0 1px 4px -1px rgba(0,0,0,0.04)',
                 'soft-lg': '0 10px 32px -4px rgba(0,0,0,0.12), 0 4px 12px -2px rgba(0,0,0,0.06)',
-                'glow': '0 0 24px -4px rgba(var(--primary), 0.3)',
                 'inner-soft': 'inset 0 2px 4px 0 rgba(0,0,0,0.06)'
             },
             keyframes: {
@@ -116,4 +123,3 @@ export default {
     },
     plugins: [typography, containerQueries, animate]
 };
-

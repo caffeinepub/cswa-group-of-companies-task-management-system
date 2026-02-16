@@ -10,7 +10,9 @@ import { useUpdateTasks, useGetAllTeamMembers } from '../hooks/useQueries';
 import type { Task } from '../backend';
 import { Type, Type__2, Type__3 } from '../backend';
 import { Principal } from '@dfinity/principal';
+import CaptainsMultiSelect from './CaptainsMultiSelect';
 import { toast } from 'sonner';
+import { getTaskStatusOptions } from '../utils/taskStatus';
 
 interface BulkEditTasksDialogProps {
   tasks: Task[];
@@ -25,8 +27,12 @@ export default function BulkEditTasksDialog({ tasks, open, onOpenChange }: BulkE
   const [comment, setComment] = useState('');
   const [updateTaskType, setUpdateTaskType] = useState(false);
   const [taskType, setTaskType] = useState<Type__3>(Type__3.GST);
+  const [updateSubType, setUpdateSubType] = useState(false);
+  const [subType, setSubType] = useState('');
   const [updateAssignedTo, setUpdateAssignedTo] = useState(false);
   const [assignedTo, setAssignedTo] = useState('');
+  const [updateCaptains, setUpdateCaptains] = useState(false);
+  const [captains, setCaptains] = useState<string[]>([]);
   const [updateDueDate, setUpdateDueDate] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [updateAssignmentDate, setUpdateAssignmentDate] = useState(false);
@@ -39,6 +45,8 @@ export default function BulkEditTasksDialog({ tasks, open, onOpenChange }: BulkE
   const [paymentStatus, setPaymentStatus] = useState<Type>(Type.pending);
   const updateTasks = useUpdateTasks();
   const { data: teamMembers = [] } = useGetAllTeamMembers();
+
+  const statusOptions = getTaskStatusOptions();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,15 +88,22 @@ export default function BulkEditTasksDialog({ tasks, open, onOpenChange }: BulkE
     }
 
     // Parse advance received
-    const advanceReceivedNat = updateAdvanceReceived && advanceReceived ? BigInt(Math.floor(parseFloat(advanceReceived))) : undefined;
+    const advanceReceivedNat = updateAdvanceReceived && advanceReceived 
+      ? BigInt(Math.floor(parseFloat(advanceReceived))) 
+      : undefined;
+
+    // Convert captains to Principal array
+    const captainsPrincipals = updateCaptains ? captains.map((c) => Principal.fromText(c)) : [];
 
     const updatedTasks = tasks.map((task) => ({
       ...task,
       status: updateStatus ? status : task.status,
       comment: updateComment ? (comment.trim() || undefined) : task.comment,
       taskType: updateTaskType ? taskType : task.taskType,
-      assignedTo: updateAssignedTo && assignedTo ? Principal.fromText(assignedTo) : task.assignedTo,
+      subType: updateSubType ? (subType.trim() || undefined) : task.subType,
+      assignedTo: updateAssignedTo && selectedMember ? Principal.fromText(assignedTo) : task.assignedTo,
       assignedName: updateAssignedTo && selectedMember ? selectedMember.name : task.assignedName,
+      captains: updateCaptains ? captainsPrincipals : task.captains,
       dueDate: updateDueDate ? dueDateNano : task.dueDate,
       manualAssignmentDate: updateAssignmentDate ? manualAssignmentDateNano : task.manualAssignmentDate,
       bill: updateBill ? (bill.trim() || undefined) : task.bill,
@@ -103,6 +118,19 @@ export default function BulkEditTasksDialog({ tasks, open, onOpenChange }: BulkE
       {
         onSuccess: () => {
           onOpenChange(false);
+          // Reset form
+          setUpdateStatus(false);
+          setUpdateComment(false);
+          setUpdateTaskType(false);
+          setUpdateSubType(false);
+          setUpdateAssignedTo(false);
+          setUpdateCaptains(false);
+          setCaptains([]);
+          setUpdateDueDate(false);
+          setUpdateAssignmentDate(false);
+          setUpdateBill(false);
+          setUpdateAdvanceReceived(false);
+          setUpdatePaymentStatus(false);
         },
       }
     );
@@ -113,217 +141,269 @@ export default function BulkEditTasksDialog({ tasks, open, onOpenChange }: BulkE
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Bulk Edit Tasks</DialogTitle>
-          <DialogDescription>Update {tasks.length} selected task(s). Only checked fields will be updated.</DialogDescription>
+          <DialogDescription>
+            Editing {tasks.length} task{tasks.length !== 1 ? 's' : ''}. Select fields to update.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4">
+          <div className="space-y-4 border rounded-lg p-4">
             <div className="flex items-center space-x-2">
-              <Checkbox id="updateStatus" checked={updateStatus} onCheckedChange={(checked) => setUpdateStatus(checked === true)} />
-              <Label htmlFor="updateStatus" className="flex-1">
+              <Checkbox
+                id="updateStatus"
+                checked={updateStatus}
+                onCheckedChange={(checked) => setUpdateStatus(checked as boolean)}
+              />
+              <Label htmlFor="updateStatus" className="font-medium cursor-pointer">
                 Update Status
               </Label>
-              {updateStatus && (
-                <Select value={status} onValueChange={(value: Type__2) => setStatus(value)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={Type__2.pending}>Pending</SelectItem>
-                    <SelectItem value={Type__2.inProgress}>In Progress</SelectItem>
-                    <SelectItem value={Type__2.completed}>Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
             </div>
+            {updateStatus && (
+              <Select value={status} onValueChange={(value: Type__2) => setStatus(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
 
-            <div className="flex items-start space-x-2">
-              <Checkbox
-                id="updateComment"
-                checked={updateComment}
-                onCheckedChange={(checked) => setUpdateComment(checked === true)}
-                className="mt-2"
-              />
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="updateComment">Update Comment</Label>
-                {updateComment && (
-                  <Textarea
-                    id="commentInput"
-                    placeholder="Add notes or comments about these tasks..."
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    rows={3}
-                  />
-                )}
-              </div>
-            </div>
-
+          <div className="space-y-4 border rounded-lg p-4">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="updateTaskType"
                 checked={updateTaskType}
-                onCheckedChange={(checked) => setUpdateTaskType(checked === true)}
+                onCheckedChange={(checked) => setUpdateTaskType(checked as boolean)}
               />
-              <Label htmlFor="updateTaskType" className="flex-1">
+              <Label htmlFor="updateTaskType" className="font-medium cursor-pointer">
                 Update Task Type
               </Label>
-              {updateTaskType && (
-                <Select value={taskType} onValueChange={(value: Type__3) => setTaskType(value)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={Type__3.GST}>GST</SelectItem>
-                    <SelectItem value={Type__3.Audit}>Audit</SelectItem>
-                    <SelectItem value={Type__3.ITNotice}>IT Notice</SelectItem>
-                    <SelectItem value={Type__3.TDS}>TDS</SelectItem>
-                    <SelectItem value={Type__3.Accounts}>Accounts</SelectItem>
-                    <SelectItem value={Type__3.FormFiling}>Form Filing</SelectItem>
-                    <SelectItem value={Type__3.CACertificate}>CA Certificate</SelectItem>
-                    <SelectItem value={Type__3.Other}>Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
             </div>
+            {updateTaskType && (
+              <Select value={taskType} onValueChange={(value: Type__3) => setTaskType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={Type__3.GST}>GST</SelectItem>
+                  <SelectItem value={Type__3.Audit}>Audit</SelectItem>
+                  <SelectItem value={Type__3.ITNotice}>IT Notice</SelectItem>
+                  <SelectItem value={Type__3.TDS}>TDS</SelectItem>
+                  <SelectItem value={Type__3.Accounts}>Accounts</SelectItem>
+                  <SelectItem value={Type__3.FormFiling}>Form Filing</SelectItem>
+                  <SelectItem value={Type__3.CACertificate}>CA Certificate</SelectItem>
+                  <SelectItem value={Type__3.Other}>Other</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
 
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="updateSubType"
+                checked={updateSubType}
+                onCheckedChange={(checked) => setUpdateSubType(checked as boolean)}
+              />
+              <Label htmlFor="updateSubType" className="font-medium cursor-pointer">
+                Update Task Subtype
+              </Label>
+            </div>
+            {updateSubType && (
+              <Input
+                placeholder="e.g., TDS Return Filing"
+                value={subType}
+                onChange={(e) => setSubType(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="space-y-4 border rounded-lg p-4">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="updateAssignedTo"
                 checked={updateAssignedTo}
-                onCheckedChange={(checked) => setUpdateAssignedTo(checked === true)}
+                onCheckedChange={(checked) => setUpdateAssignedTo(checked as boolean)}
               />
-              <Label htmlFor="updateAssignedTo" className="flex-1">
-                Update Assigned To
+              <Label htmlFor="updateAssignedTo" className="font-medium cursor-pointer">
+                Update Assignee
               </Label>
-              {updateAssignedTo && (
-                <Select value={assignedTo} onValueChange={setAssignedTo}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.principal.toString()} value={member.principal.toString()}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
             </div>
+            {updateAssignedTo && (
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.principal.toString()} value={member.principal.toString()}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
 
-            <div className="flex items-start space-x-2">
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="updateCaptains"
+                checked={updateCaptains}
+                onCheckedChange={(checked) => setUpdateCaptains(checked as boolean)}
+              />
+              <Label htmlFor="updateCaptains" className="font-medium cursor-pointer">
+                Update Captains
+              </Label>
+            </div>
+            {updateCaptains && (
+              <CaptainsMultiSelect
+                teamMembers={teamMembers}
+                value={captains}
+                onValueChange={setCaptains}
+                placeholder="Select captains..."
+              />
+            )}
+          </div>
+
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
               <Checkbox
                 id="updateDueDate"
                 checked={updateDueDate}
-                onCheckedChange={(checked) => setUpdateDueDate(checked === true)}
-                className="mt-2"
+                onCheckedChange={(checked) => setUpdateDueDate(checked as boolean)}
               />
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="updateDueDate">Update Due Date</Label>
-                {updateDueDate && (
-                  <Input
-                    id="dueDateInput"
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
-                )}
-              </div>
+              <Label htmlFor="updateDueDate" className="font-medium cursor-pointer">
+                Update Due Date
+              </Label>
             </div>
+            {updateDueDate && (
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            )}
+          </div>
 
-            <div className="flex items-start space-x-2">
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
               <Checkbox
                 id="updateAssignmentDate"
                 checked={updateAssignmentDate}
-                onCheckedChange={(checked) => setUpdateAssignmentDate(checked === true)}
-                className="mt-2"
+                onCheckedChange={(checked) => setUpdateAssignmentDate(checked as boolean)}
               />
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="updateAssignmentDate">Update Assignment Date</Label>
-                {updateAssignmentDate && (
-                  <Input
-                    id="assignmentDateInput"
-                    type="date"
-                    value={assignmentDate}
-                    onChange={(e) => setAssignmentDate(e.target.value)}
-                  />
-                )}
-              </div>
+              <Label htmlFor="updateAssignmentDate" className="font-medium cursor-pointer">
+                Update Assignment Date
+              </Label>
             </div>
+            {updateAssignmentDate && (
+              <Input
+                type="date"
+                value={assignmentDate}
+                onChange={(e) => setAssignmentDate(e.target.value)}
+              />
+            )}
+          </div>
 
-            <div className="flex items-start space-x-2">
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
               <Checkbox
                 id="updateBill"
                 checked={updateBill}
-                onCheckedChange={(checked) => setUpdateBill(checked === true)}
-                className="mt-2"
+                onCheckedChange={(checked) => setUpdateBill(checked as boolean)}
               />
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="updateBill">Update Bill Amount</Label>
-                {updateBill && (
-                  <Input
-                    id="billInput"
-                    placeholder="e.g., 50000"
-                    value={bill}
-                    onChange={(e) => setBill(e.target.value)}
-                  />
-                )}
-              </div>
+              <Label htmlFor="updateBill" className="font-medium cursor-pointer">
+                Update Bill Amount
+              </Label>
             </div>
+            {updateBill && (
+              <Input
+                placeholder="e.g., 50000"
+                value={bill}
+                onChange={(e) => setBill(e.target.value)}
+              />
+            )}
+          </div>
 
-            <div className="flex items-start space-x-2">
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
               <Checkbox
                 id="updateAdvanceReceived"
                 checked={updateAdvanceReceived}
-                onCheckedChange={(checked) => setUpdateAdvanceReceived(checked === true)}
-                className="mt-2"
+                onCheckedChange={(checked) => setUpdateAdvanceReceived(checked as boolean)}
               />
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="updateAdvanceReceived">Update Advance Received</Label>
-                {updateAdvanceReceived && (
-                  <Input
-                    id="advanceReceivedInput"
-                    type="number"
-                    placeholder="e.g., 25000"
-                    value={advanceReceived}
-                    onChange={(e) => setAdvanceReceived(e.target.value)}
-                  />
-                )}
-              </div>
+              <Label htmlFor="updateAdvanceReceived" className="font-medium cursor-pointer">
+                Update Advance Received
+              </Label>
             </div>
+            {updateAdvanceReceived && (
+              <Input
+                type="number"
+                placeholder="e.g., 25000"
+                value={advanceReceived}
+                onChange={(e) => setAdvanceReceived(e.target.value)}
+              />
+            )}
+          </div>
 
+          <div className="space-y-4 border rounded-lg p-4">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="updatePaymentStatus"
                 checked={updatePaymentStatus}
-                onCheckedChange={(checked) => setUpdatePaymentStatus(checked === true)}
+                onCheckedChange={(checked) => setUpdatePaymentStatus(checked as boolean)}
               />
-              <Label htmlFor="updatePaymentStatus" className="flex-1">
+              <Label htmlFor="updatePaymentStatus" className="font-medium cursor-pointer">
                 Update Payment Status
               </Label>
-              {updatePaymentStatus && (
-                <Select value={paymentStatus} onValueChange={(value: Type) => setPaymentStatus(value)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={Type.pending}>Pending</SelectItem>
-                    <SelectItem value={Type.paid}>Paid</SelectItem>
-                    <SelectItem value={Type.overdue}>Overdue</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
             </div>
+            {updatePaymentStatus && (
+              <Select value={paymentStatus} onValueChange={(value: Type) => setPaymentStatus(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={Type.pending}>Pending</SelectItem>
+                  <SelectItem value={Type.paid}>Paid</SelectItem>
+                  <SelectItem value={Type.overdue}>Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <div className="space-y-4 border rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="updateComment"
+                checked={updateComment}
+                onCheckedChange={(checked) => setUpdateComment(checked as boolean)}
+              />
+              <Label htmlFor="updateComment" className="font-medium cursor-pointer">
+                Update Comment
+              </Label>
+            </div>
+            {updateComment && (
+              <Textarea
+                placeholder="Add notes or comments..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={3}
+              />
+            )}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={updateTasks.isPending || (!updateStatus && !updateComment && !updateTaskType && !updateAssignedTo && !updateDueDate && !updateAssignmentDate && !updateBill && !updateAdvanceReceived && !updatePaymentStatus)}
-            >
-              {updateTasks.isPending ? 'Updating...' : 'Update Tasks'}
+            <Button type="submit" disabled={updateTasks.isPending}>
+              {updateTasks.isPending ? 'Updating...' : `Update ${tasks.length} Task${tasks.length !== 1 ? 's' : ''}`}
             </Button>
           </DialogFooter>
         </form>

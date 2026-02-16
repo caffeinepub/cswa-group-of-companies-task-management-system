@@ -3,90 +3,179 @@
 @tailwind utilities;
 
 @layer base {
-    :root {
-        --radius: 0.5rem;
-        --background: 0.98 0.005 260;
-        --foreground: 0.15 0.015 260;
-        --card: 1 0 0;
-        --card-foreground: 0.15 0.015 260;
-        --popover: 1 0 0;
-        --popover-foreground: 0.15 0.015 260;
-        --primary: 0.55 0.20 260;
-        --primary-foreground: 0.99 0 0;
-        --secondary: 0.45 0.18 200;
-        --secondary-foreground: 0.99 0 0;
-        --muted: 0.96 0.008 260;
-        --muted-foreground: 0.52 0.015 260;
-        --accent: 0.94 0.012 260;
-        --accent-foreground: 0.15 0.015 260;
-        --destructive: 0.58 0.24 25;
-        --destructive-foreground: 0.99 0 0;
-        --border: 0.92 0.008 260;
-        --input: 0.92 0.008 260;
-        --ring: 0.55 0.20 260;
-        --chart-1: 0.60 0.20 260;
-        --chart-2: 0.58 0.22 200;
-        --chart-3: 0.62 0.18 30;
-        --chart-4: 0.56 0.24 300;
-        --chart-5: 0.68 0.16 150;
-        --sidebar: 0.16 0.02 260;
-        --sidebar-foreground: 0.95 0.01 260;
-        --sidebar-primary: 0.55 0.20 260;
-        --sidebar-primary-foreground: 0.99 0 0;
-        --sidebar-accent: 0.22 0.03 260;
-        --sidebar-accent-foreground: 0.95 0.01 260;
-        --sidebar-border: 0.24 0.03 260;
-        --sidebar-ring: 0.55 0.20 260;
-    }
+  :root {
+    /* Standard neutral palette */
+    --background: oklch(100% 0 0);
+    --foreground: oklch(9% 0 0);
+    --card: oklch(100% 0 0);
+    --card-foreground: oklch(9% 0 0);
+    --popover: oklch(100% 0 0);
+    --popover-foreground: oklch(9% 0 0);
+    
+    /* Primary: neutral slate */
+    --primary: oklch(25% 0.015 265);
+    --primary-foreground: oklch(98% 0 0);
+    
+    /* Secondary: light neutral */
+    --secondary: oklch(96% 0.006 265);
+    --secondary-foreground: oklch(25% 0.015 265);
+    
+    /* Muted neutral tones */
+    --muted: oklch(96% 0.006 265);
+    --muted-foreground: oklch(45% 0.015 265);
+    
+    /* Accent: subtle neutral */
+    --accent: oklch(96% 0.006 265);
+    --accent-foreground: oklch(25% 0.015 265);
+    
+    /* Destructive */
+    --destructive: oklch(58% 0.22 25);
+    --destructive-foreground: oklch(98% 0 0);
+    
+    /* Borders and inputs */
+    --border: oklch(90% 0.006 265);
+    --input: oklch(90% 0.006 265);
+    --ring: oklch(25% 0.015 265);
+    
+    --radius: 0.5rem;
+    
+    /* Chart colors - neutral tones */
+    --chart-1: oklch(60% 0.12 265);
+    --chart-2: oklch(55% 0.12 220);
+    --chart-3: oklch(50% 0.12 180);
+    --chart-4: oklch(65% 0.12 140);
+    --chart-5: oklch(70% 0.12 100);
+    
+    /* Sidebar tokens */
+    --sidebar-background: oklch(100% 0 0);
+    --sidebar-foreground: oklch(9% 0 0);
+    --sidebar-primary: oklch(25% 0.015 265);
+    --sidebar-primary-foreground: oklch(98% 0 0);
+    --sidebar-accent: oklch(96% 0.006 265);
+    --sidebar-accent-foreground: oklch(25% 0.015 265);
+    --sidebar-border: oklch(90% 0.006 265);
+    --sidebar-ring: oklch(25% 0.015 265);
+    
+    /* Success and warning */
+    --success: oklch(60% 0.15 145);
+    --success-foreground: oklch(98% 0 0);
+    --warning: oklch(70% 0.15 85);
+    --warning-foreground: oklch(20% 0.015 85);
+  }
 
-    .dark {
-        --background: 0.12 0.02 260;
-        --foreground: 0.96 0.008 260;
-        --card: 0.16 0.025 260;
-        --card-foreground: 0.96 0.008 260;
-        --popover: 0.14 0.022 260;
-        --popover-foreground: 0.96 0.008 260;
-        --primary: 0.65 0.22 260;
-        --primary-foreground: 0.99 0 0;
-        --secondary: 0.52 0.20 200;
-        --secondary-foreground: 0.99 0 0;
-        --muted: 0.20 0.028 260;
-        --muted-foreground: 0.65 0.018 260;
-        --accent: 0.24 0.032 260;
-        --accent-foreground: 0.96 0.008 260;
-        --destructive: 0.55 0.26 25;
-        --destructive-foreground: 0.99 0 0;
-        --border: 0.26 0.032 260;
-        --input: 0.26 0.032 260;
-        --ring: 0.65 0.22 260;
-        --chart-1: 0.62 0.24 260;
-        --chart-2: 0.64 0.20 200;
-        --chart-3: 0.68 0.18 30;
-        --chart-4: 0.58 0.26 300;
-        --chart-5: 0.72 0.16 150;
-        --sidebar: 0.14 0.025 260;
-        --sidebar-foreground: 0.96 0.008 260;
-        --sidebar-primary: 0.65 0.22 260;
-        --sidebar-primary-foreground: 0.99 0 0;
-        --sidebar-accent: 0.24 0.032 260;
-        --sidebar-accent-foreground: 0.96 0.008 260;
-        --sidebar-border: 0.26 0.032 260;
-        --sidebar-ring: 0.65 0.22 260;
-    }
-
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-        font-feature-settings: "rlig" 1, "calt" 1;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-    }
+  .dark {
+    /* Dark blue theme - deep blue backgrounds */
+    --background: oklch(12% 0.035 250);
+    --foreground: oklch(98% 0.01 250);
+    --card: oklch(15% 0.04 250);
+    --card-foreground: oklch(98% 0.01 250);
+    --popover: oklch(15% 0.04 250);
+    --popover-foreground: oklch(98% 0.01 250);
+    
+    /* Primary: bright blue accent */
+    --primary: oklch(65% 0.18 250);
+    --primary-foreground: oklch(98% 0.01 250);
+    
+    /* Secondary: darker blue */
+    --secondary: oklch(22% 0.05 250);
+    --secondary-foreground: oklch(98% 0.01 250);
+    
+    /* Muted blue tones */
+    --muted: oklch(22% 0.05 250);
+    --muted-foreground: oklch(70% 0.04 250);
+    
+    /* Accent: vibrant blue */
+    --accent: oklch(28% 0.08 250);
+    --accent-foreground: oklch(98% 0.01 250);
+    
+    /* Destructive */
+    --destructive: oklch(62% 0.22 25);
+    --destructive-foreground: oklch(98% 0 0);
+    
+    /* Borders and inputs - blue tinted */
+    --border: oklch(25% 0.06 250);
+    --input: oklch(25% 0.06 250);
+    --ring: oklch(65% 0.18 250);
+    
+    /* Chart colors for dark mode - blue palette */
+    --chart-1: oklch(60% 0.15 250);
+    --chart-2: oklch(55% 0.15 220);
+    --chart-3: oklch(50% 0.15 200);
+    --chart-4: oklch(65% 0.12 270);
+    --chart-5: oklch(70% 0.12 280);
+    
+    /* Sidebar tokens for dark mode - deep blue */
+    --sidebar-background: oklch(14% 0.04 250);
+    --sidebar-foreground: oklch(98% 0.01 250);
+    --sidebar-primary: oklch(65% 0.18 250);
+    --sidebar-primary-foreground: oklch(98% 0.01 250);
+    --sidebar-accent: oklch(28% 0.08 250);
+    --sidebar-accent-foreground: oklch(98% 0.01 250);
+    --sidebar-border: oklch(25% 0.06 250);
+    --sidebar-ring: oklch(65% 0.18 250);
+    
+    /* Success and warning for dark mode */
+    --success: oklch(65% 0.15 145);
+    --success-foreground: oklch(12% 0.035 250);
+    --warning: oklch(75% 0.15 85);
+    --warning-foreground: oklch(12% 0.035 250);
+  }
 }
 
-@layer utilities {
-    .text-balance {
-        text-wrap: balance;
-    }
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
+/* Force opaque backgrounds for all floating surfaces */
+@layer components {
+  /* Dialog surfaces - ensure solid backgrounds */
+  [role="dialog"],
+  [data-radix-dialog-content] {
+    background-color: oklch(var(--popover)) !important;
+    color: oklch(var(--popover-foreground)) !important;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Popover surfaces - ensure solid backgrounds */
+  [data-radix-popover-content],
+  [data-radix-popper-content-wrapper] > div {
+    background-color: oklch(var(--popover)) !important;
+    color: oklch(var(--popover-foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  /* Select dropdown surfaces */
+  [data-radix-select-content],
+  [data-radix-select-viewport] {
+    background-color: oklch(var(--popover)) !important;
+    color: oklch(var(--popover-foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  /* Command palette surfaces */
+  [cmdk-root],
+  [cmdk-list] {
+    background-color: oklch(var(--popover)) !important;
+    color: oklch(var(--popover-foreground)) !important;
+  }
+
+  /* Dropdown menu surfaces */
+  [data-radix-dropdown-menu-content] {
+    background-color: oklch(var(--popover)) !important;
+    color: oklch(var(--popover-foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  /* Context menu surfaces */
+  [data-radix-context-menu-content] {
+    background-color: oklch(var(--popover)) !important;
+    color: oklch(var(--popover-foreground)) !important;
+    opacity: 1 !important;
+  }
+}

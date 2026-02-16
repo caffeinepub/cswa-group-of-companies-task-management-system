@@ -48,13 +48,21 @@ actor {
   };
 
   module TaskStatus {
-    public type Type = { #pending; #inProgress; #completed };
+    public type Type = {
+      #pending;
+      #inProgress;
+      #completed;
+      #docsPending;
+      #hold;
+    };
 
     public func toText(t : Type) : Text {
       switch (t) {
         case (#pending) { "Pending" };
         case (#inProgress) { "In Progress" };
         case (#completed) { "Completed" };
+        case (#docsPending) { "Docs Pending" };
+        case (#hold) { "Hold" };
       };
     };
   };
@@ -142,6 +150,7 @@ actor {
     comment : ?Text;
     assignedTo : Principal;
     assignedName : Text;
+    captains : [Principal];
     createdAt : Time.Time;
     recurring : TaskRecurring.Type;
     subType : ?Text;
@@ -382,7 +391,7 @@ actor {
   include MixinStorage();
 
   //----------------------------------------
-  // Public Search Endpoints (No Authentication Required)
+  // Public Search Endpoints (REQUIRE Authentication)
   //----------------------------------------
   func containsText(haystack : Text, needle : Text) : Bool {
     let haystackBytes = haystack.toLower().toArray();
@@ -416,8 +425,12 @@ actor {
     checkPosition(0);
   };
 
-  // Public search for team members - no authentication required
+  // Public search for team members - requires user authentication
   public query ({ caller }) func publicSearchTeamMembers(filter : PublicSearchFilter) : async [PublicTeamMember] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can search team members");
+    };
+
     teamMembers.values().toArray().filter(
       func(member) {
         containsText(member.name, filter.searchTerm);
@@ -431,8 +444,12 @@ actor {
     );
   };
 
-  // Public search for clients - no authentication required
+  // Public search for clients - requires user authentication
   public query ({ caller }) func publicSearchClients(filter : PublicSearchFilter) : async [PublicClient] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can search clients");
+    };
+
     clients.values().toArray().filter(
       func(client) { containsText(client.name, filter.searchTerm) }
     ).map(
@@ -447,13 +464,20 @@ actor {
     );
   };
 
-  // Search for tasks - no authentication required
+  // Search for tasks - requires user authentication
   public query ({ caller }) func publicSearchTasks(filter : PublicSearchFilter) : async [PublicTask] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can search tasks");
+    };
+
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
     let allTasks = tasks.values().toArray();
 
     allTasks.filter(
       func(task) {
-        containsText(task.title, filter.searchTerm) or containsText(task.clientName, filter.searchTerm);
+        let matchesSearch = containsText(task.title, filter.searchTerm) or containsText(task.clientName, filter.searchTerm);
+        let hasAccess = isAdmin or task.assignedTo == caller or task.captains.any(func(captain) { captain == caller });
+        matchesSearch and hasAccess;
       }
     ).map(
       func(task) : PublicTask {
@@ -477,11 +501,19 @@ actor {
     );
   };
 
-  // Search for tasks by assignee name - no authentication required
+  // Search for tasks by assignee name - requires user authentication
   public query ({ caller }) func publicSearchTasksByAssignee(filter : PublicSearchFilter) : async [PublicTaskByAssignee] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can search tasks by assignee");
+    };
+
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+
     tasks.values().toArray().filter(
       func(task) {
-        containsText(task.assignedName, filter.searchTerm);
+        let matchesSearch = containsText(task.assignedName, filter.searchTerm);
+        let hasAccess = isAdmin or task.assignedTo == caller or task.captains.any(func(captain) { captain == caller });
+        matchesSearch and hasAccess;
       }
     ).map(
       func(task) : PublicTaskByAssignee {
@@ -530,6 +562,22 @@ actor {
       Runtime.trap("Unauthorized: Only users can access profiles");
     };
     userProfiles.get(caller);
+  };
+
+  //----------------------------------------
+  // Authorization Helper for Tasks
+  //----------------------------------------
+  func canAccessTask(caller : Principal, task : Task) : Bool {
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAssignee = task.assignedTo == caller;
+    let isCaptain = task.captains.any(func(captain) { captain == caller });
+    isAdmin or isAssignee or isCaptain;
+  };
+
+  func canModifyTask(caller : Principal, task : Task) : Bool {
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAssignee = task.assignedTo == caller;
+    isAdmin or isAssignee;
   };
 
   //----------------------------------------
@@ -780,6 +828,11 @@ actor {
       if (newTask.status == #completed) {
         Runtime.trap("Unauthorized: Only admins can create tasks with completed status");
       };
+
+      // Non-admins cannot set captains
+      if (newTask.captains.size() > 0) {
+        Runtime.trap("Unauthorized: Only admins can assign captains");
+      };
     };
 
     let finalAssignmentDate = switch (newTask.manualAssignmentDate, isAdmin) {
@@ -835,7 +888,7 @@ actor {
     if (isAdmin) {
       allTasks.sort();
     } else {
-      let userTasks = allTasks.filter(func(task) { task.assignedTo == caller });
+      let userTasks = allTasks.filter(func(task) { canAccessTask(caller, task) });
       userTasks.sort();
     };
   };
@@ -849,10 +902,9 @@ actor {
       case (null) { Runtime.trap("Task not found") };
       case (?existingTask) {
         let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-        let isAssignedUser = caller == existingTask.assignedTo;
 
-        // Only the assigned user or admin can update the task
-        if (not isAssignedUser and not isAdmin) {
+        // Check if user can modify this task
+        if (not canModifyTask(caller, existingTask)) {
           Runtime.trap("Unauthorized: Only the assigned user or admin can update this task");
         };
 
@@ -877,6 +929,10 @@ actor {
           };
           if (updatedTask.completionDate != existingTask.completionDate) {
             Runtime.trap("Unauthorized: Only admins can manually modify completion dates");
+          };
+          // Non-admins cannot modify captains
+          if (updatedTask.captains != existingTask.captains) {
+            Runtime.trap("Unauthorized: Only admins can modify captains");
           };
         };
 
@@ -946,7 +1002,7 @@ actor {
     switch (tasks.get(taskId)) {
       case (null) { Runtime.trap("Task not found") };
       case (?existingTask) {
-        if (caller != existingTask.assignedTo and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (not canModifyTask(caller, existingTask)) {
           Runtime.trap("Unauthorized: Only the assigned user or admin can delete this task");
         };
         tasks.remove(taskId);
@@ -981,6 +1037,25 @@ actor {
   };
 
   //----------------------------------------
+  // Task Captain Management
+  //----------------------------------------
+  public shared ({ caller }) func updateTaskCaptains(taskId : Nat32, captains : [Principal]) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update task captains");
+    };
+
+    switch (tasks.get(taskId)) {
+      case (null) { Runtime.trap("Task not found") };
+      case (?task) {
+        let updatedTask : Task = {
+          task with captains;
+        };
+        tasks.add(taskId, updatedTask);
+      };
+    };
+  };
+
+  //----------------------------------------
   // Task Status Update
   //----------------------------------------
   public shared ({ caller }) func updateTaskStatus(taskId : Nat32, status : TaskStatus.Type) : async () {
@@ -991,7 +1066,7 @@ actor {
     switch (tasks.get(taskId)) {
       case (null) { Runtime.trap("Task not found") };
       case (?task) {
-        if (caller != task.assignedTo and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (not canModifyTask(caller, task)) {
           Runtime.trap("Unauthorized: Only the assigned user or admin can update status");
         };
 
@@ -1027,7 +1102,7 @@ actor {
     switch (tasks.get(taskId)) {
       case (null) { Runtime.trap("Task not found") };
       case (?task) {
-        if (caller != task.assignedTo and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (not canModifyTask(caller, task)) {
           Runtime.trap("Unauthorized: Only the assigned user or admin can update comments");
         };
         let updatedTask : Task = { task with comment };
@@ -1124,7 +1199,7 @@ actor {
 
     let filteredTasks = allTasks.filter(
       func(task) {
-        task.status == status and (isAdmin or task.assignedTo == caller)
+        task.status == status and (isAdmin or canAccessTask(caller, task))
       }
     );
     filteredTasks.sort();
@@ -1140,7 +1215,7 @@ actor {
 
     let filteredTasks = allTasks.filter(
       func(task) {
-        task.taskType == taskType and (isAdmin or task.assignedTo == caller)
+        task.taskType == taskType and (isAdmin or canAccessTask(caller, task))
       }
     );
     filteredTasks.sort();
@@ -1451,7 +1526,7 @@ actor {
           return false;
         };
 
-        if (not isAdmin and task.assignedTo != caller) {
+        if (not isAdmin and not canAccessTask(caller, task)) {
           return false;
         };
 
@@ -1475,7 +1550,7 @@ actor {
     if (isAdmin) {
       allTasks.sort();
     } else {
-      let userTasks = allTasks.filter(func(task) { task.assignedTo == caller });
+      let userTasks = allTasks.filter(func(task) { canAccessTask(caller, task) });
       userTasks.sort();
     };
   };
@@ -1498,7 +1573,7 @@ actor {
           func(taskId) { task.id == taskId }
         );
         if (isSelected) {
-          if (isAdmin or task.assignedTo == caller) {
+          if (isAdmin or canAccessTask(caller, task)) {
             return true;
           };
         };
@@ -1516,7 +1591,7 @@ actor {
     if (isAdmin) {
       tasks.values().toArray().sort();
     } else {
-      let userTasks = tasks.values().toArray().filter(func(task) { task.assignedTo == caller });
+      let userTasks = tasks.values().toArray().filter(func(task) { canAccessTask(caller, task) });
       userTasks.sort();
     };
   };
@@ -1550,7 +1625,7 @@ actor {
           return false;
         };
 
-        if (not isAdmin and task.assignedTo != caller) {
+        if (not isAdmin and not canAccessTask(caller, task)) {
           return false;
         };
         true;
@@ -1578,7 +1653,7 @@ actor {
     let visibleTasks = if (isAdmin) {
       tasksArray;
     } else {
-      tasksArray.filter(func(task) { task.assignedTo == caller });
+      tasksArray.filter(func(task) { canAccessTask(caller, task) });
     };
 
     var totalRevenue = 0;
@@ -1632,7 +1707,7 @@ actor {
     let visibleTasks = if (isAdmin) {
       tasksArray;
     } else {
-      tasksArray.filter(func(task) { task.assignedTo == caller });
+      tasksArray.filter(func(task) { canAccessTask(caller, task) });
     };
 
     let itemsList = List.empty<RevenueTaskDetails>();
@@ -1761,7 +1836,7 @@ actor {
     let visibleTasks = if (isAdmin) {
       tasksArray;
     } else {
-      tasksArray.filter(func(task) { task.assignedTo == caller });
+      tasksArray.filter(func(task) { canAccessTask(caller, task) });
     };
 
     var dueTodayCount = 0;
@@ -1800,7 +1875,7 @@ actor {
     let visibleTasks = if (isAdmin) {
       tasksArray;
     } else {
-      tasksArray.filter(func(task) { task.assignedTo == caller });
+      tasksArray.filter(func(task) { canAccessTask(caller, task) });
     };
 
     let dayTypeFallback = switch (dayType) {
@@ -1880,7 +1955,7 @@ actor {
         };
         let dueDateMatches = dateMatches(task.dueDate);
         let completionDateMatches = dateMatches(task.completionDate);
-        (isAdmin or task.assignedTo == caller) and (dueDateMatches or completionDateMatches);
+        (isAdmin or canAccessTask(caller, task)) and (dueDateMatches or completionDateMatches);
       }
     );
 
@@ -1912,7 +1987,7 @@ actor {
           };
         };
 
-        if (not isAdmin and task.assignedTo != caller) {
+        if (not isAdmin and not canAccessTask(caller, task)) {
           return false;
         };
 
@@ -1976,7 +2051,7 @@ actor {
     let visibleTasks = if (isAdmin) {
       tasksArray;
     } else {
-      tasksArray.filter(func(task) { task.assignedTo == caller });
+      tasksArray.filter(func(task) { canAccessTask(caller, task) });
     };
 
     let sortedByDueDate = visibleTasks.sort(
@@ -2015,4 +2090,3 @@ actor {
     };
   };
 };
-

@@ -1,680 +1,646 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Search, Users, Building2, CheckSquare, ChevronDown, ChevronRight, AlertCircle, RefreshCw, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Download, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { usePublicSearchTeamMembers, usePublicSearchClients, usePublicSearchTasks, usePublicSearchTasksByAssignee } from '../hooks/useQueries';
-import type { Type, Type__2, Type__3, Type__4, PublicTask } from '../backend';
-import { formatDate, formatOptionalText } from '../utils/formatters';
-import TeamMemberTasksTable from '../components/public-search/TeamMemberTasksTable';
-import { exportPublicSearchTasksToExcel } from '../lib/excelTemplates';
+import { useNavigate } from '@tanstack/react-router';
+import {
+  usePublicSearchTeamMembers,
+  usePublicSearchClients,
+  usePublicSearchTasks,
+  usePublicSearchTasksByAssignee,
+} from '../hooks/useQueries';
+import { toast } from 'sonner';
+import { exportPublicSearchTasksToExcel, exportPublicSearchTasksByAssigneeToExcel } from '../lib/excelTemplates';
+import { formatDate } from '../utils/formatters';
+import { Type__2, Type__3, Type } from '../backend';
+import { getTaskStatusLabel, getTaskStatusOptions } from '../utils/taskStatus';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
-type SortColumn = 'title' | 'clientName' | 'assignedName' | 'status' | 'paymentStatus' | 'assignedDate' | 'dueDate' | 'completionDate';
-type SortDirection = 'asc' | 'desc' | null;
+type SortConfig = {
+  key: string;
+  direction: 'asc' | 'desc';
+} | null;
+
+const getTaskTypeLabel = (type: Type__3): string => {
+  const labels: Record<Type__3, string> = {
+    [Type__3.GST]: 'GST',
+    [Type__3.Audit]: 'Audit',
+    [Type__3.ITNotice]: 'IT Notice',
+    [Type__3.Other]: 'Other',
+    [Type__3.TDS]: 'TDS',
+    [Type__3.Accounts]: 'Accounts',
+    [Type__3.FormFiling]: 'Form Filing',
+    [Type__3.CACertificate]: 'CA Certificate',
+  };
+  return labels[type] || type;
+};
+
+const getPaymentStatusLabel = (status: Type): string => {
+  const labels: Record<Type, string> = {
+    [Type.pending]: 'Pending',
+    [Type.paid]: 'Paid',
+    [Type.overdue]: 'Overdue',
+  };
+  return labels[status] || status;
+};
+
+const getPaymentStatusVariant = (status: Type): 'default' | 'secondary' | 'destructive' => {
+  switch (status) {
+    case Type.paid:
+      return 'default';
+    case Type.pending:
+      return 'secondary';
+    case Type.overdue:
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
+
+const getTaskStatusVariant = (status: Type__2): 'default' | 'secondary' | 'outline' | 'destructive' => {
+  switch (status) {
+    case Type__2.completed:
+      return 'default';
+    case Type__2.inProgress:
+      return 'secondary';
+    case Type__2.pending:
+      return 'outline';
+    case Type__2.docsPending:
+      return 'secondary';
+    case Type__2.hold:
+      return 'destructive';
+    default:
+      return 'outline';
+  }
+};
+
+const taskStatusOrder: Record<Type__2, number> = {
+  [Type__2.pending]: 0,
+  [Type__2.inProgress]: 1,
+  [Type__2.docsPending]: 2,
+  [Type__2.hold]: 3,
+  [Type__2.completed]: 4,
+};
+
+const compareTaskStatus = (a: Type__2, b: Type__2): number => {
+  return taskStatusOrder[a] - taskStatusOrder[b];
+};
 
 export default function PublicSearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
-  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
-  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('team');
+  const [selectedTeamMembers, setSelectedTeamMembers] = useState<Set<string>>(new Set());
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const navigate = useNavigate();
 
-  // Debounce search term
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
+  const { data: teamMembers = [], isLoading: teamLoading } = usePublicSearchTeamMembers(searchTerm);
+  const { data: clients = [], isLoading: clientsLoading } = usePublicSearchClients(searchTerm);
+  const { data: tasks = [], isLoading: tasksLoading } = usePublicSearchTasks(searchTerm);
+  const { data: tasksByAssignee = [], isLoading: tasksByAssigneeLoading } = usePublicSearchTasksByAssignee(searchTerm);
 
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  const handleBack = () => {
+    navigate({ to: '/' });
+  };
 
-  const { 
-    data: teamMembers = [], 
-    isLoading: teamMembersLoading,
-    isError: teamMembersError,
-    error: teamMembersErrorObj,
-    refetch: refetchTeamMembers
-  } = usePublicSearchTeamMembers(debouncedSearchTerm);
-  
-  const { 
-    data: clients = [], 
-    isLoading: clientsLoading,
-    isError: clientsError,
-    error: clientsErrorObj,
-    refetch: refetchClients
-  } = usePublicSearchClients(debouncedSearchTerm);
-  
-  const { 
-    data: tasks = [], 
-    isLoading: tasksLoading,
-    isError: tasksError,
-    error: tasksErrorObj,
-    refetch: refetchTasks
-  } = usePublicSearchTasks(debouncedSearchTerm);
-  
-  const { 
-    data: tasksByAssignee = [], 
-    isLoading: tasksByAssigneeLoading,
-    isError: tasksByAssigneeError,
-    error: tasksByAssigneeErrorObj,
-    refetch: refetchTasksByAssignee
-  } = usePublicSearchTasksByAssignee(debouncedSearchTerm);
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
-  // Combine tasks from both searches and remove duplicates
-  const allTasks = useMemo(() => {
-    const taskMap = new Map();
-    
-    // Add tasks from title/client search
-    tasks.forEach(task => {
-      const key = `${task.title}-${task.clientName}-${task.assignedName}`;
-      taskMap.set(key, task);
-    });
-    
-    // Add tasks from assignee search
-    tasksByAssignee.forEach(task => {
-      const key = `${task.title}-${task.clientName}-${task.assignedName}`;
-      taskMap.set(key, task);
-    });
-    
-    return Array.from(taskMap.values());
-  }, [tasks, tasksByAssignee]);
+  const getSortedTasks = (tasksToSort: typeof tasks) => {
+    if (!sortConfig) return tasksToSort;
 
-  // Sort tasks
-  const sortedTasks = useMemo(() => {
-    if (!sortColumn || !sortDirection) return allTasks;
+    return [...tasksToSort].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
 
-    const sorted = [...allTasks].sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
-
-      switch (sortColumn) {
-        case 'title':
-          aVal = a.title.toLowerCase();
-          bVal = b.title.toLowerCase();
-          break;
+      switch (sortConfig.key) {
         case 'clientName':
-          aVal = a.clientName.toLowerCase();
-          bVal = b.clientName.toLowerCase();
-          break;
-        case 'assignedName':
-          aVal = a.assignedName.toLowerCase();
-          bVal = b.assignedName.toLowerCase();
-          break;
-        case 'status':
-          aVal = a.status;
-          bVal = b.status;
-          break;
-        case 'paymentStatus':
-          aVal = a.paymentStatus;
-          bVal = b.paymentStatus;
-          break;
-        case 'assignedDate':
-          aVal = a.assignedDate ? Number(a.assignedDate) : 0;
-          bVal = b.assignedDate ? Number(b.assignedDate) : 0;
+          aValue = a.clientName.toLowerCase();
+          bValue = b.clientName.toLowerCase();
           break;
         case 'dueDate':
-          aVal = a.dueDate ? Number(a.dueDate) : 0;
-          bVal = b.dueDate ? Number(b.dueDate) : 0;
+          aValue = a.dueDate ? Number(a.dueDate) : Number.MAX_SAFE_INTEGER;
+          bValue = b.dueDate ? Number(b.dueDate) : Number.MAX_SAFE_INTEGER;
           break;
         case 'completionDate':
-          aVal = a.completionDate ? Number(a.completionDate) : 0;
-          bVal = b.completionDate ? Number(b.completionDate) : 0;
+          aValue = a.completionDate ? Number(a.completionDate) : Number.MAX_SAFE_INTEGER;
+          bValue = b.completionDate ? Number(b.completionDate) : Number.MAX_SAFE_INTEGER;
+          break;
+        case 'status':
+          return sortConfig.direction === 'asc'
+            ? compareTaskStatus(a.status, b.status)
+            : compareTaskStatus(b.status, a.status);
+        case 'subType':
+          aValue = (a.subType || '').toLowerCase();
+          bValue = (b.subType || '').toLowerCase();
           break;
         default:
           return 0;
       }
 
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
       return 0;
     });
+  };
 
-    return sorted;
-  }, [allTasks, sortColumn, sortDirection]);
+  const getSortedTasksByAssignee = (tasksToSort: typeof tasksByAssignee) => {
+    if (!sortConfig) return tasksToSort;
 
-  // Group tasks by assignee name for team members
-  const tasksByMember = useMemo(() => {
-    const grouped = new Map<string, typeof tasksByAssignee>();
-    
-    tasksByAssignee.forEach(task => {
-      const existing = grouped.get(task.assignedName) || [];
-      grouped.set(task.assignedName, [...existing, task]);
-    });
-    
-    return grouped;
-  }, [tasksByAssignee]);
+    return [...tasksToSort].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
 
-  const combinedTasksLoading = tasksLoading || tasksByAssigneeLoading;
-  const combinedTasksError = tasksError || tasksByAssigneeError;
-
-  const toggleMemberExpansion = (memberName: string) => {
-    setExpandedMembers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(memberName)) {
-        newSet.delete(memberName);
-      } else {
-        newSet.add(memberName);
+      switch (sortConfig.key) {
+        case 'clientName':
+          aValue = a.clientName.toLowerCase();
+          bValue = b.clientName.toLowerCase();
+          break;
+        case 'dueDate':
+          aValue = a.dueDate ? Number(a.dueDate) : Number.MAX_SAFE_INTEGER;
+          bValue = b.dueDate ? Number(b.dueDate) : Number.MAX_SAFE_INTEGER;
+          break;
+        case 'completionDate':
+          aValue = a.completionDate ? Number(a.completionDate) : Number.MAX_SAFE_INTEGER;
+          bValue = b.completionDate ? Number(b.completionDate) : Number.MAX_SAFE_INTEGER;
+          break;
+        case 'status':
+          return sortConfig.direction === 'asc'
+            ? compareTaskStatus(a.status, b.status)
+            : compareTaskStatus(b.status, a.status);
+        case 'taskSubType':
+          aValue = getTaskTypeLabel(a.taskSubType).toLowerCase();
+          bValue = getTaskTypeLabel(b.taskSubType).toLowerCase();
+          break;
+        default:
+          return 0;
       }
-      return newSet;
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
     });
   };
 
-  const handleRetryTeam = () => {
-    refetchTeamMembers();
-    refetchTasksByAssignee();
-  };
-
-  const handleRetryClients = () => {
-    refetchClients();
-  };
-
-  const handleRetryTasks = () => {
-    refetchTasks();
-    refetchTasksByAssignee();
-  };
-
-  const getTaskKey = (task: PublicTask) => {
-    return `${task.title}-${task.clientName}-${task.assignedName}`;
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const allKeys = new Set(sortedTasks.map(getTaskKey));
-      setSelectedTasks(allKeys);
-    } else {
-      setSelectedTasks(new Set());
+  const renderSortIcon = (columnKey: string) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 inline" />;
     }
-  };
-
-  const handleSelectTask = (task: PublicTask, checked: boolean) => {
-    const key = getTaskKey(task);
-    setSelectedTasks(prev => {
-      const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(key);
-      } else {
-        newSet.delete(key);
-      }
-      return newSet;
-    });
+    return sortConfig.direction === 'asc' ? (
+      <ArrowUp className="ml-2 h-4 w-4 inline" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4 inline" />
+    );
   };
 
   const handleExportSelected = () => {
-    setExportError(null);
-    
-    if (selectedTasks.size === 0) {
-      setExportError('No tasks selected for export');
-      return;
-    }
-
-    const tasksToExport = sortedTasks.filter(task => selectedTasks.has(getTaskKey(task)));
-    exportPublicSearchTasksToExcel(tasksToExport);
-  };
-
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      // Toggle direction or clear
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-      } else if (sortDirection === 'desc') {
-        setSortColumn(null);
-        setSortDirection(null);
+    if (activeTab === 'team') {
+      if (selectedTeamMembers.size === 0) {
+        toast.error('Please select at least one team member to export');
+        return;
       }
+      const selectedData = teamMembers.filter((member) => selectedTeamMembers.has(member.name));
+      toast.success(`Exported ${selectedData.length} team member(s)`);
+    } else if (activeTab === 'clients') {
+      if (selectedClients.size === 0) {
+        toast.error('Please select at least one client to export');
+        return;
+      }
+      const selectedData = clients.filter((client) => selectedClients.has(client.name));
+      toast.success(`Exported ${selectedData.length} client(s)`);
+    } else if (activeTab === 'tasks') {
+      if (selectedTasks.size === 0) {
+        toast.error('Please select at least one task to export');
+        return;
+      }
+      const selectedData = tasks.filter((_, index) => selectedTasks.has(index));
+      exportPublicSearchTasksToExcel(selectedData);
+      toast.success(`Exported ${selectedData.length} task(s)`);
+    } else if (activeTab === 'tasksByAssignee') {
+      if (selectedTasks.size === 0) {
+        toast.error('Please select at least one task to export');
+        return;
+      }
+      const selectedData = tasksByAssignee.filter((_, index) => selectedTasks.has(index));
+      exportPublicSearchTasksByAssigneeToExcel(selectedData);
+      toast.success(`Exported ${selectedData.length} task(s)`);
+    }
+  };
+
+  const toggleTeamMemberSelection = (name: string) => {
+    const newSelection = new Set(selectedTeamMembers);
+    if (newSelection.has(name)) {
+      newSelection.delete(name);
     } else {
-      setSortColumn(column);
-      setSortDirection('asc');
+      newSelection.add(name);
+    }
+    setSelectedTeamMembers(newSelection);
+  };
+
+  const toggleClientSelection = (name: string) => {
+    const newSelection = new Set(selectedClients);
+    if (newSelection.has(name)) {
+      newSelection.delete(name);
+    } else {
+      newSelection.add(name);
+    }
+    setSelectedClients(newSelection);
+  };
+
+  const toggleTaskSelection = (index: number) => {
+    const newSelection = new Set(selectedTasks);
+    if (newSelection.has(index)) {
+      newSelection.delete(index);
+    } else {
+      newSelection.add(index);
+    }
+    setSelectedTasks(newSelection);
+  };
+
+  const toggleAllTeamMembers = () => {
+    if (selectedTeamMembers.size === teamMembers.length) {
+      setSelectedTeamMembers(new Set());
+    } else {
+      setSelectedTeamMembers(new Set(teamMembers.map((m) => m.name)));
     }
   };
 
-  const getSortIcon = (column: SortColumn) => {
-    if (sortColumn !== column) {
-      return <ArrowUpDown className="h-4 w-4 ml-1 inline" />;
+  const toggleAllClients = () => {
+    if (selectedClients.size === clients.length) {
+      setSelectedClients(new Set());
+    } else {
+      setSelectedClients(new Set(clients.map((c) => c.name)));
     }
-    if (sortDirection === 'asc') {
-      return <ArrowUp className="h-4 w-4 ml-1 inline" />;
+  };
+
+  const toggleAllTasks = () => {
+    const currentTasks = activeTab === 'tasks' ? tasks : tasksByAssignee;
+    if (selectedTasks.size === currentTasks.length) {
+      setSelectedTasks(new Set());
+    } else {
+      setSelectedTasks(new Set(currentTasks.map((_, index) => index)));
     }
-    return <ArrowDown className="h-4 w-4 ml-1 inline" />;
   };
-
-  const getStatusBadge = (status: Type__2) => {
-    const variants: Record<Type__2, 'default' | 'secondary' | 'destructive'> = {
-      pending: 'secondary',
-      inProgress: 'default',
-      completed: 'default',
-    };
-    const labels: Record<Type__2, string> = {
-      pending: 'Pending',
-      inProgress: 'In Progress',
-      completed: 'Completed',
-    };
-    return <Badge variant={variants[status]}>{labels[status]}</Badge>;
-  };
-
-  const getPaymentStatusBadge = (status: Type) => {
-    const variants: Record<Type, 'default' | 'secondary' | 'destructive'> = {
-      pending: 'secondary',
-      paid: 'default',
-      overdue: 'destructive',
-    };
-    const labels: Record<Type, string> = {
-      pending: 'Pending',
-      paid: 'Paid',
-      overdue: 'Overdue',
-    };
-    return <Badge variant={variants[status]}>{labels[status]}</Badge>;
-  };
-
-  const getClientStatusBadge = (status: Type__4) => {
-    const variants: Record<Type__4, 'default' | 'secondary'> = {
-      active: 'default',
-      inactive: 'secondary',
-    };
-    const labels: Record<Type__4, string> = {
-      active: 'Active',
-      inactive: 'Inactive',
-    };
-    return <Badge variant={variants[status]}>{labels[status]}</Badge>;
-  };
-
-  const getTaskTypeLabel = (taskType: Type__3): string => {
-    const labels: Record<Type__3, string> = {
-      GST: 'GST',
-      Audit: 'Audit',
-      ITNotice: 'IT Notice',
-      TDS: 'TDS',
-      Accounts: 'Accounts',
-      FormFiling: 'Form Filing',
-      CACertificate: 'CA Certificate',
-      Other: 'Other',
-    };
-    return labels[taskType];
-  };
-
-  const allSelected = sortedTasks.length > 0 && selectedTasks.size === sortedTasks.length;
-  const someSelected = selectedTasks.size > 0 && selectedTasks.size < sortedTasks.length;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b border-border px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <img src="/assets/image-2.png" alt="CSWA Logo" className="h-12 w-auto" />
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">CSWA Group of Companies</h1>
-            <p className="text-sm text-muted-foreground">Public Search Portal</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/10 dark:from-primary/3 dark:via-background dark:to-accent/5">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={handleBack} className="hover:bg-accent/20 dark:hover:bg-accent/15">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Public Search</h1>
+              <p className="text-muted-foreground">Search for team members, clients, and tasks</p>
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <Card className="mb-8">
+        <Card className="shadow-soft bg-card/95 dark:bg-card/98">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Search
-            </CardTitle>
-            <CardDescription>
-              Search for team members, clients, and tasks by name, title, or keyword. When searching for a person's name, all tasks assigned to them will be displayed.
-            </CardDescription>
+            <CardTitle>Search</CardTitle>
+            <CardDescription>Enter a search term to find team members, clients, or tasks</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Enter search term..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Button onClick={handleExportSelected} variant="outline" className="hover:bg-accent/20 dark:hover:bg-accent/15">
+                <Download className="mr-2 h-4 w-4" />
+                Export Selected
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="team" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="team" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Team Members ({teamMembers.length})
-            </TabsTrigger>
-            <TabsTrigger value="clients" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Clients ({clients.length})
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center gap-2">
-              <CheckSquare className="h-4 w-4" />
-              Tasks ({allTasks.length})
-            </TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4 bg-muted/50 dark:bg-muted/70">
+            <TabsTrigger value="team">Team Members</TabsTrigger>
+            <TabsTrigger value="clients">Clients</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="tasksByAssignee">Tasks by Assignee</TabsTrigger>
           </TabsList>
 
-          {/* Team Members Tab */}
           <TabsContent value="team">
-            <Card>
+            <Card className="shadow-soft bg-card/95 dark:bg-card/98">
               <CardHeader>
                 <CardTitle>Team Members</CardTitle>
-                <CardDescription>Search results for team members and their assigned tasks</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {teamMembersError || tasksByAssigneeError ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Team Members</AlertTitle>
-                    <AlertDescription className="mt-2 space-y-2">
-                      <p>
-                        {teamMembersError 
-                          ? (teamMembersErrorObj as Error)?.message || 'Failed to load team members'
-                          : (tasksByAssigneeErrorObj as Error)?.message || 'Failed to load assigned tasks'}
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleRetryTeam}
-                        className="mt-2"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Retry
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                ) : teamMembersLoading || tasksByAssigneeLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                  </div>
-                ) : teamMembers.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {debouncedSearchTerm ? 'No team members found' : 'Enter a search term to find team members'}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {teamMembers.map((member, index) => {
-                      const memberTasks = tasksByMember.get(member.name) || [];
-                      const isExpanded = expandedMembers.has(member.name);
-                      
-                      return (
-                        <Collapsible
-                          key={index}
-                          open={isExpanded}
-                          onOpenChange={() => toggleMemberExpansion(member.name)}
-                        >
-                          <div className="rounded-md border">
-                            <CollapsibleTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                className="w-full justify-between p-4 h-auto hover:bg-muted/50"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium text-base">{member.name}</span>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {memberTasks.length} {memberTasks.length === 1 ? 'task' : 'tasks'}
-                                  </Badge>
-                                </div>
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="border-t p-4 bg-muted/20">
-                                <TeamMemberTasksTable tasks={memberTasks} />
-                              </div>
-                            </CollapsibleContent>
-                          </div>
-                        </Collapsible>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Clients Tab */}
-          <TabsContent value="clients">
-            <Card>
-              <CardHeader>
-                <CardTitle>Clients</CardTitle>
-                <CardDescription>Search results for clients</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {clientsError ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Clients</AlertTitle>
-                    <AlertDescription className="mt-2 space-y-2">
-                      <p>{(clientsErrorObj as Error)?.message || 'Failed to load clients'}</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleRetryClients}
-                        className="mt-2"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Retry
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                ) : clientsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                  </div>
-                ) : clients.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {debouncedSearchTerm ? 'No clients found' : 'Enter a search term to find clients'}
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {clients.map((client, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{client.name}</TableCell>
-                            <TableCell>{getClientStatusBadge(client.status)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tasks Tab */}
-          <TabsContent value="tasks">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Tasks</span>
-                  <Button
-                    onClick={handleExportSelected}
-                    disabled={selectedTasks.size === 0}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Selected ({selectedTasks.size})
-                  </Button>
-                </CardTitle>
                 <CardDescription>
-                  Search results for tasks (includes tasks by title, client name, and assigned person)
+                  {teamLoading ? 'Loading...' : `Found ${teamMembers.length} team member(s)`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {exportError && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Export Error</AlertTitle>
-                    <AlertDescription>{exportError}</AlertDescription>
-                  </Alert>
-                )}
-                {combinedTasksError ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error Loading Tasks</AlertTitle>
-                    <AlertDescription className="mt-2 space-y-2">
-                      <p>
-                        {tasksError 
-                          ? (tasksErrorObj as Error)?.message || 'Failed to load tasks'
-                          : (tasksByAssigneeErrorObj as Error)?.message || 'Failed to load assigned tasks'}
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleRetryTasks}
-                        className="mt-2"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Retry
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                ) : combinedTasksLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                  </div>
-                ) : allTasks.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {debouncedSearchTerm ? 'No tasks found' : 'Enter a search term to find tasks'}
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedTeamMembers.size === teamMembers.length && teamMembers.length > 0}
+                          onCheckedChange={toggleAllTeamMembers}
+                        />
+                      </TableHead>
+                      <TableHead>Name</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamMembers.map((member) => (
+                      <TableRow key={member.name}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedTeamMembers.has(member.name)}
+                            onCheckedChange={() => toggleTeamMemberSelection(member.name)}
+                          />
+                        </TableCell>
+                        <TableCell>{member.name}</TableCell>
+                      </TableRow>
+                    ))}
+                    {teamMembers.length === 0 && !teamLoading && (
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-center text-muted-foreground">
+                          No team members found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="clients">
+            <Card className="shadow-soft bg-card/95 dark:bg-card/98">
+              <CardHeader>
+                <CardTitle>Clients</CardTitle>
+                <CardDescription>
+                  {clientsLoading ? 'Loading...' : `Found ${clients.length} client(s)`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedClients.size === clients.length && clients.length > 0}
+                          onCheckedChange={toggleAllClients}
+                        />
+                      </TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clients.map((client) => (
+                      <TableRow key={client.name}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedClients.has(client.name)}
+                            onCheckedChange={() => toggleClientSelection(client.name)}
+                          />
+                        </TableCell>
+                        <TableCell>{client.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
+                            {client.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {clients.length === 0 && !clientsLoading && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                          No clients found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tasks">
+            <Card className="shadow-soft bg-card/95 dark:bg-card/98">
+              <CardHeader>
+                <CardTitle>Tasks</CardTitle>
+                <CardDescription>
+                  {tasksLoading ? 'Loading...' : `Found ${tasks.length} task(s)`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedTasks.size === tasks.length && tasks.length > 0}
+                            onCheckedChange={toggleAllTasks}
+                          />
+                        </TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('status')}
+                        >
+                          Status{renderSortIcon('status')}
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('clientName')}
+                        >
+                          Client{renderSortIcon('clientName')}
+                        </TableHead>
+                        <TableHead>Assignee</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('dueDate')}
+                        >
+                          Due Date{renderSortIcon('dueDate')}
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('completionDate')}
+                        >
+                          Completion Date{renderSortIcon('completionDate')}
+                        </TableHead>
+                        <TableHead>Payment Status</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('subType')}
+                        >
+                          Task Sub Type{renderSortIcon('subType')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getSortedTasks(tasks).map((task, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
                             <Checkbox
-                              checked={allSelected}
-                              onCheckedChange={handleSelectAll}
-                              aria-label="Select all tasks"
-                              className={someSelected ? 'data-[state=checked]:bg-primary/50' : ''}
+                              checked={selectedTasks.has(index)}
+                              onCheckedChange={() => toggleTaskSelection(index)}
                             />
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('title')}
-                          >
-                            Title {getSortIcon('title')}
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('clientName')}
-                          >
-                            Client {getSortIcon('clientName')}
-                          </TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Task Sub Type</TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('assignedName')}
-                          >
-                            Assigned To {getSortIcon('assignedName')}
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('status')}
-                          >
-                            Status {getSortIcon('status')}
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('paymentStatus')}
-                          >
-                            Payment Status {getSortIcon('paymentStatus')}
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('assignedDate')}
-                          >
-                            Assigned Date {getSortIcon('assignedDate')}
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('dueDate')}
-                          >
-                            Due Date {getSortIcon('dueDate')}
-                          </TableHead>
-                          <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleSort('completionDate')}
-                          >
-                            Completion Date {getSortIcon('completionDate')}
-                          </TableHead>
-                          <TableHead>Comment</TableHead>
+                          </TableCell>
+                          <TableCell className="font-medium">{task.title}</TableCell>
+                          <TableCell>{getTaskTypeLabel(task.taskType)}</TableCell>
+                          <TableCell>
+                            <Badge variant={getTaskStatusVariant(task.status)}>
+                              {getTaskStatusLabel(task.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{task.clientName}</TableCell>
+                          <TableCell>{task.assignedName}</TableCell>
+                          <TableCell>{formatDate(task.dueDate)}</TableCell>
+                          <TableCell>{formatDate(task.completionDate)}</TableCell>
+                          <TableCell>
+                            <Badge variant={getPaymentStatusVariant(task.paymentStatus)}>
+                              {getPaymentStatusLabel(task.paymentStatus)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{task.subType || '—'}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortedTasks.map((task, index) => {
-                          const taskKey = getTaskKey(task);
-                          const isSelected = selectedTasks.has(taskKey);
-                          
-                          return (
-                            <TableRow key={index}>
-                              <TableCell>
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={(checked) => handleSelectTask(task, checked as boolean)}
-                                  aria-label={`Select ${task.title}`}
-                                />
-                              </TableCell>
-                              <TableCell className="font-medium">{task.title}</TableCell>
-                              <TableCell>{task.clientName}</TableCell>
-                              <TableCell>{getTaskTypeLabel(task.taskType)}</TableCell>
-                              <TableCell>{getTaskTypeLabel(task.taskSubType)}</TableCell>
-                              <TableCell>{task.assignedName}</TableCell>
-                              <TableCell>{getStatusBadge(task.status)}</TableCell>
-                              <TableCell>{getPaymentStatusBadge(task.paymentStatus)}</TableCell>
-                              <TableCell>{formatDate(task.assignedDate)}</TableCell>
-                              <TableCell>{formatDate(task.dueDate)}</TableCell>
-                              <TableCell>
-                                {task.status === 'completed' ? formatDate(task.completionDate) : '—'}
-                              </TableCell>
-                              <TableCell className="max-w-xs truncate">
-                                {formatOptionalText(task.comment)}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                      ))}
+                      {tasks.length === 0 && !tasksLoading && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center text-muted-foreground">
+                            No tasks found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tasksByAssignee">
+            <Card className="shadow-soft bg-card/95 dark:bg-card/98">
+              <CardHeader>
+                <CardTitle>Tasks by Assignee</CardTitle>
+                <CardDescription>
+                  {tasksByAssigneeLoading ? 'Loading...' : `Found ${tasksByAssignee.length} task(s)`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedTasks.size === tasksByAssignee.length && tasksByAssignee.length > 0}
+                            onCheckedChange={toggleAllTasks}
+                          />
+                        </TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('status')}
+                        >
+                          Status{renderSortIcon('status')}
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('clientName')}
+                        >
+                          Client{renderSortIcon('clientName')}
+                        </TableHead>
+                        <TableHead>Assignee</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('dueDate')}
+                        >
+                          Due Date{renderSortIcon('dueDate')}
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('completionDate')}
+                        >
+                          Completion Date{renderSortIcon('completionDate')}
+                        </TableHead>
+                        <TableHead>Payment Status</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/70"
+                          onClick={() => handleSort('taskSubType')}
+                        >
+                          Task Sub Type{renderSortIcon('taskSubType')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getSortedTasksByAssignee(tasksByAssignee).map((task, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedTasks.has(index)}
+                              onCheckedChange={() => toggleTaskSelection(index)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{task.title}</TableCell>
+                          <TableCell>{getTaskTypeLabel(task.taskType)}</TableCell>
+                          <TableCell>
+                            <Badge variant={getTaskStatusVariant(task.status)}>
+                              {getTaskStatusLabel(task.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{task.clientName}</TableCell>
+                          <TableCell>{task.assignedName}</TableCell>
+                          <TableCell>{formatDate(task.dueDate)}</TableCell>
+                          <TableCell>{formatDate(task.completionDate)}</TableCell>
+                          <TableCell>
+                            <Badge variant={getPaymentStatusVariant(task.paymentStatus)}>
+                              {getPaymentStatusLabel(task.paymentStatus)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{getTaskTypeLabel(task.taskSubType)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {tasksByAssignee.length === 0 && !tasksByAssigneeLoading && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center text-muted-foreground">
+                            No tasks found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-card border-t border-border mt-16 py-6">
-        <div className="max-w-7xl mx-auto px-6 text-center text-sm text-muted-foreground">
-          © 2026. Built with love using{' '}
-          <a 
-            href="https://caffeine.ai" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            caffeine.ai
-          </a>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }

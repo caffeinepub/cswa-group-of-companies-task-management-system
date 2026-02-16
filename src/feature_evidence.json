@@ -2,15 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-redesign-the-app-s-visual-theme-to-look-more-stylish-and-modern-across-all-pages-dashboard-clients-tasks-to-do-team-login-by-updating-global-theme-tokens-and-applying-consistent-spacing-typography-shadows-and-hover-active-states",
-      "featureTitle": "Redesign the app’s visual theme to look more stylish and modern across all pages (Dashboard, Clients, Tasks, To‑Do, Team, Login) by updating global theme tokens and applying consistent spacing, typography, shadows, and hover/active states.",
+      "featureId": "feature-update-the-app-theme-tokens-to-a-dark-blue-palette-so-dark-mode-uses-deep-blue-accents-and-darker-blue-tinted-backgrounds-while-maintaining-readable-contrast-for-text-and-ui-surfaces-cards-popovers-dialogs-sidebar-apply-the-changes-via-the-existing-css-variable-tokens-used-by-tailwind-e-g-in-frontend-src-index-css-so-the-updated-palette-propagates-across-all-pages-and-components-consistently",
+      "featureTitle": "Update the app theme tokens to a dark blue palette so dark mode uses deep blue accents and darker blue-tinted backgrounds while maintaining readable contrast for text and UI surfaces (cards, popovers, dialogs, sidebar). Apply the changes via the existing CSS variable tokens used by Tailwind (e.g., in frontend/src/index.css) so the updated palette propagates across all pages and components consistently.",
       "files": [
-        "frontend/src/index.css",
-        "frontend/src/pages/ClientsPage.tsx",
-        "frontend/src/pages/TasksPage.tsx",
-        "frontend/src/pages/TeamPage.tsx",
-        "frontend/src/pages/ToDoPage.tsx",
-        "frontend/tailwind.config.js"
+        "frontend/src/index.css"
       ],
       "components": [
         "authorization@4.0.0",
@@ -27,10 +22,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-refresh-the-main-shell-sidebar-header-footer-styling-to-match-the-new-theme-including-improved-navigation-affordances-active-item-hover-state-better-sidebar-header-spacing-and-a-more-premium-look",
-      "featureTitle": "Refresh the main shell (sidebar/header/footer) styling to match the new theme, including improved navigation affordances (active item, hover state), better sidebar/header spacing, and a more premium look.",
+      "featureId": "feature-make-dark-mode-the-default-theme-used-by-the-app-themeprovider-so-users-see-the-dark-blue-theme-by-default-on-first-load-including-authenticated-app-routes-and-the-public-search-route",
+      "featureTitle": "Make dark mode the default theme used by the app ThemeProvider so users see the dark blue theme by default on first load (including authenticated app routes and the public search route).",
       "files": [
-        "frontend/src/components/MainLayout.tsx"
+        "frontend/src/App.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -43,27 +38,6 @@
       ],
       "testIds": [
         "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-update-key-page-level-ui-sections-at-minimum-dashboard-and-login-to-better-reflect-the-new-stylish-theme-using-consistent-header-hierarchy-icon-treatments-and-subtle-visual-depth-e-g-soft-shadows-gradients-or-tasteful-backgrounds-without-changing-app-functionality",
-      "featureTitle": "Update key page-level UI sections (at minimum Dashboard and Login) to better reflect the new stylish theme, using consistent header hierarchy, icon treatments, and subtle visual depth (e.g., soft shadows, gradients, or tasteful backgrounds) without changing app functionality.",
-      "files": [
-        "frontend/src/pages/DashboardPage.tsx",
-        "frontend/src/pages/LoginPage.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "blob-storage@4.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
       ],
       "confidence": "high"
     }

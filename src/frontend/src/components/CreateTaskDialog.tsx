@@ -9,6 +9,7 @@ import { useCreateTask, useGetClients, useGetAllTeamMembers } from '../hooks/use
 import { Type, Type__1, Type__2, Type__3 } from '../backend';
 import { Principal } from '@dfinity/principal';
 import SearchableAssigneeSelect from './SearchableAssigneeSelect';
+import CaptainsMultiSelect from './CaptainsMultiSelect';
 import { toast } from 'sonner';
 
 interface CreateTaskDialogProps {
@@ -23,6 +24,7 @@ export default function CreateTaskDialog({ open, onOpenChange, initialClientName
   const [taskType, setTaskType] = useState<Type__3>(Type__3.GST);
   const [subType, setSubType] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [captains, setCaptains] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [assignmentDate, setAssignmentDate] = useState('');
   const [bill, setBill] = useState('');
@@ -90,6 +92,9 @@ export default function CreateTaskDialog({ open, onOpenChange, initialClientName
       // Parse advance received
       const advanceReceivedNat = advanceReceived ? BigInt(Math.floor(parseFloat(advanceReceived))) : undefined;
 
+      // Convert captains to Principal array
+      const captainsPrincipals = captains.map((c) => Principal.fromText(c));
+
       createTask.mutate(
         {
           id: 0,
@@ -100,6 +105,7 @@ export default function CreateTaskDialog({ open, onOpenChange, initialClientName
           status: Type__2.pending,
           assignedTo: Principal.fromText(assignedTo),
           assignedName: assignedName,
+          captains: captainsPrincipals,
           createdAt: BigInt(Date.now()) * BigInt(1000000),
           recurring: Type__1.none,
           subType: subType.trim() || undefined,
@@ -117,6 +123,7 @@ export default function CreateTaskDialog({ open, onOpenChange, initialClientName
             setTaskType(Type__3.GST);
             setSubType('');
             setAssignedTo('');
+            setCaptains([]);
             setDueDate('');
             setAssignmentDate('');
             setBill('');
@@ -249,6 +256,15 @@ export default function CreateTaskDialog({ open, onOpenChange, initialClientName
               value={assignedTo}
               onValueChange={setAssignedTo}
               placeholder="Search and select assignee..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="captains">Captains (Optional)</Label>
+            <CaptainsMultiSelect
+              teamMembers={teamMembers}
+              value={captains}
+              onValueChange={setCaptains}
+              placeholder="Select captains..."
             />
           </div>
           <div className="space-y-2">

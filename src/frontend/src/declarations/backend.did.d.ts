@@ -126,6 +126,7 @@ export interface Task {
   'taskType' : Type__3,
   'comment' : [] | [string],
   'outstandingAmount' : [] | [bigint],
+  'captains' : Array<Principal>,
   'assignedName' : string,
 }
 export interface TaskFilter {
@@ -174,8 +175,10 @@ export type Type__1 = { 'none' : null } |
   { 'monthly' : null } |
   { 'yearly' : null };
 export type Type__2 = { 'pending' : null } |
+  { 'hold' : null } |
   { 'completed' : null } |
-  { 'inProgress' : null };
+  { 'inProgress' : null } |
+  { 'docsPending' : null };
 export type Type__3 = { 'GST' : null } |
   { 'TDS' : null } |
   { 'ITNotice' : null } |
@@ -291,6 +294,7 @@ export interface _SERVICE {
     [number, [] | [string], [] | [bigint]],
     undefined
   >,
+  'updateTaskCaptains' : ActorMethod<[number, Array<Principal>], undefined>,
   'updateTaskComment' : ActorMethod<[number, [] | [string]], undefined>,
   'updateTaskStatus' : ActorMethod<[number, Type__2], undefined>,
   'updateTasks' : ActorMethod<[Uint32Array, Array<Task>], undefined>,

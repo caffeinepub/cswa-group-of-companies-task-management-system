@@ -8,12 +8,13 @@ import { Download, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-r
 import type { PublicTaskByAssignee, Type, Type__2, Type__3 } from '../../backend';
 import { formatDate, formatOptionalText } from '../../utils/formatters';
 import { exportPublicSearchTasksByAssigneeToExcel } from '../../lib/excelTemplates';
+import { compareTaskStatus } from '../../utils/taskStatus';
 
 interface TeamMemberTasksTableProps {
   tasks: PublicTaskByAssignee[];
 }
 
-type SortColumn = 'title' | 'clientName' | 'status' | 'paymentStatus' | 'assignedDate' | 'dueDate' | 'completionDate';
+type SortColumn = 'title' | 'clientName' | 'status' | 'paymentStatus' | 'assignedDate' | 'dueDate' | 'completionDate' | 'taskSubType';
 type SortDirection = 'asc' | 'desc' | null;
 
 export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProps) {
@@ -27,11 +28,15 @@ export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProp
       pending: 'secondary',
       inProgress: 'default',
       completed: 'default',
+      docsPending: 'secondary',
+      hold: 'destructive',
     };
     const labels: Record<Type__2, string> = {
       pending: 'Pending',
       inProgress: 'In Progress',
       completed: 'Completed',
+      docsPending: 'Docs Pending',
+      hold: 'Hold',
     };
     return <Badge variant={variants[status]}>{labels[status]}</Badge>;
   };
@@ -86,9 +91,7 @@ export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProp
           bVal = b.clientName.toLowerCase();
           break;
         case 'status':
-          aVal = a.status;
-          bVal = b.status;
-          break;
+          return compareTaskStatus(a.status, b.status, sortDirection);
         case 'paymentStatus':
           aVal = a.paymentStatus;
           bVal = b.paymentStatus;
@@ -105,6 +108,10 @@ export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProp
           aVal = a.completionDate ? Number(a.completionDate) : 0;
           bVal = b.completionDate ? Number(b.completionDate) : 0;
           break;
+        case 'taskSubType':
+          aVal = getTaskTypeLabel(a.taskSubType).toLowerCase();
+          bVal = getTaskTypeLabel(b.taskSubType).toLowerCase();
+          break;
         default:
           return 0;
       }
@@ -117,43 +124,8 @@ export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProp
     return sorted;
   }, [tasks, sortColumn, sortDirection]);
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const allKeys = new Set(sortedTasks.map(getTaskKey));
-      setSelectedTasks(allKeys);
-    } else {
-      setSelectedTasks(new Set());
-    }
-  };
-
-  const handleSelectTask = (task: PublicTaskByAssignee, checked: boolean) => {
-    const key = getTaskKey(task);
-    setSelectedTasks(prev => {
-      const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(key);
-      } else {
-        newSet.delete(key);
-      }
-      return newSet;
-    });
-  };
-
-  const handleExportSelected = () => {
-    setExportError(null);
-    
-    if (selectedTasks.size === 0) {
-      setExportError('No tasks selected for export');
-      return;
-    }
-
-    const tasksToExport = sortedTasks.filter(task => selectedTasks.has(getTaskKey(task)));
-    exportPublicSearchTasksByAssigneeToExcel(tasksToExport);
-  };
-
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
-      // Toggle direction or clear
       if (sortDirection === 'asc') {
         setSortDirection('desc');
       } else if (sortDirection === 'desc') {
@@ -176,40 +148,70 @@ export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProp
     return <ArrowDown className="h-4 w-4 ml-1 inline" />;
   };
 
-  const allSelected = sortedTasks.length > 0 && selectedTasks.size === sortedTasks.length;
-  const someSelected = selectedTasks.size > 0 && selectedTasks.size < sortedTasks.length;
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allKeys = new Set(tasks.map(getTaskKey));
+      setSelectedTasks(allKeys);
+    } else {
+      setSelectedTasks(new Set());
+    }
+  };
+
+  const handleSelectTask = (taskKey: string, checked: boolean) => {
+    setSelectedTasks(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(taskKey);
+      } else {
+        newSet.delete(taskKey);
+      }
+      return newSet;
+    });
+  };
+
+  const handleExportSelected = () => {
+    try {
+      setExportError(null);
+      if (selectedTasks.size === 0) {
+        setExportError('Please select at least one task to export');
+        return;
+      }
+
+      const selectedTasksData = tasks.filter(task => selectedTasks.has(getTaskKey(task)));
+      exportPublicSearchTasksByAssigneeToExcel(selectedTasksData);
+      setSelectedTasks(new Set());
+    } catch (error) {
+      setExportError(`Failed to export: ${(error as Error).message}`);
+    }
+  };
+
+  const allSelected = tasks.length > 0 && selectedTasks.size === tasks.length;
+  const someSelected = selectedTasks.size > 0 && selectedTasks.size < tasks.length;
 
   if (tasks.length === 0) {
-    return (
-      <div className="text-center py-4 text-sm text-muted-foreground">
-        No tasks assigned to this team member
-      </div>
-    );
+    return <div className="text-center py-8 text-muted-foreground">No tasks found</div>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          {selectedTasks.size > 0 && `${selectedTasks.size} task${selectedTasks.size === 1 ? '' : 's'} selected`}
-        </div>
-        <Button
-          onClick={handleExportSelected}
-          disabled={selectedTasks.size === 0}
-          size="sm"
-          variant="outline"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export Selected ({selectedTasks.size})
-        </Button>
-      </div>
-
       {exportError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Export Error</AlertTitle>
           <AlertDescription>{exportError}</AlertDescription>
         </Alert>
+      )}
+
+      {selectedTasks.size > 0 && (
+        <div className="flex items-center justify-between bg-muted p-4 rounded-md">
+          <span className="text-sm font-medium">
+            {selectedTasks.size} task{selectedTasks.size !== 1 ? 's' : ''} selected
+          </span>
+          <Button onClick={handleExportSelected} size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export Selected
+          </Button>
+        </div>
       )}
 
       <div className="rounded-md border overflow-x-auto">
@@ -225,79 +227,82 @@ export default function TeamMemberTasksTable({ tasks }: TeamMemberTasksTableProp
                 />
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[200px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('title')}
               >
-                Title {getSortIcon('title')}
+                Task Title {getSortIcon('title')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[150px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('clientName')}
               >
                 Client {getSortIcon('clientName')}
               </TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Task Sub Type</TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[120px] cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('taskSubType')}
+              >
+                Task Sub Type {getSortIcon('taskSubType')}
+              </TableHead>
+              <TableHead 
+                className="w-[120px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('status')}
               >
-                Task Status {getSortIcon('status')}
+                Status {getSortIcon('status')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[120px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('paymentStatus')}
               >
-                Payment Status {getSortIcon('paymentStatus')}
+                Payment {getSortIcon('paymentStatus')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[120px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('assignedDate')}
               >
                 Assigned Date {getSortIcon('assignedDate')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[120px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('dueDate')}
               >
                 Due Date {getSortIcon('dueDate')}
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[140px] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('completionDate')}
               >
                 Completion Date {getSortIcon('completionDate')}
               </TableHead>
-              <TableHead>Comment</TableHead>
+              <TableHead className="w-[200px]">Comment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedTasks.map((task, index) => {
+            {sortedTasks.map((task) => {
               const taskKey = getTaskKey(task);
-              const isSelected = selectedTasks.has(taskKey);
-              
               return (
-                <TableRow key={index}>
+                <TableRow key={taskKey}>
                   <TableCell>
                     <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={(checked) => handleSelectTask(task, checked as boolean)}
+                      checked={selectedTasks.has(taskKey)}
+                      onCheckedChange={(checked) => handleSelectTask(taskKey, checked as boolean)}
                       aria-label={`Select ${task.title}`}
                     />
                   </TableCell>
                   <TableCell className="font-medium">{task.title}</TableCell>
                   <TableCell>{task.clientName}</TableCell>
-                  <TableCell>{getTaskTypeLabel(task.taskType)}</TableCell>
-                  <TableCell>{getTaskTypeLabel(task.taskSubType)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{getTaskTypeLabel(task.taskSubType)}</Badge>
+                  </TableCell>
                   <TableCell>{getStatusBadge(task.status)}</TableCell>
                   <TableCell>{getPaymentStatusBadge(task.paymentStatus)}</TableCell>
                   <TableCell>{formatDate(task.assignedDate)}</TableCell>
                   <TableCell>{formatDate(task.dueDate)}</TableCell>
+                  <TableCell>{formatDate(task.completionDate)}</TableCell>
                   <TableCell>
-                    {task.status === 'completed' ? formatDate(task.completionDate) : '—'}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {formatOptionalText(task.comment)}
+                    <span className="text-sm text-muted-foreground truncate max-w-[180px] block">
+                      {formatOptionalText(task.comment)}
+                    </span>
                   </TableCell>
                 </TableRow>
               );

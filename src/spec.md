@@ -1,12 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Update the app’s UI theme to a more stylish, modern, cohesive design across all pages.
+**Goal:** Apply a dark blue theme across the UI and make dark mode the default on first load.
 
 **Planned changes:**
-- Revise global theme tokens (CSS variables) in `frontend/src/index.css` for both light and dark mode (colors, backgrounds, borders, muted text) to achieve a more intentional modern palette with readable contrast.
-- Apply consistent spacing, typography scale, radius, shadows, and component states (hover/active/focus) across cards, tables, dialogs, buttons, inputs, selects, and tabs by adjusting app/page/component `className` usage (without editing Shadcn UI component source files).
-- Refresh the main shell styling in `frontend/src/components/MainLayout.tsx` (sidebar/header/footer) to match the new theme, including improved navigation affordances (active item styling and hover states) and better spacing while keeping responsiveness and sidebar toggle behavior.
-- Restyle key page sections—at minimum `frontend/src/pages/DashboardPage.tsx` and `frontend/src/pages/LoginPage.tsx`—to better reflect the premium theme through improved layout, header hierarchy, icon treatments, and subtle visual depth, without changing functionality.
+- Update the existing CSS variable theme tokens (used by Tailwind) to a dark blue palette for dark mode, including deep blue accents and darker blue-tinted backgrounds for key surfaces (app background, cards, popovers, dialogs, sidebar) while maintaining readable contrast.
+- Set the app ThemeProvider to default to dark mode so the dark blue theme is shown by default on initial load across Login, MainLayout, and Public Search.
 
-**User-visible outcome:** The app looks consistently modern and premium across Dashboard, Clients, Tasks, To‑Do, Team, and Login, with improved navigation styling and more polished component spacing and interaction states, while all existing behavior remains unchanged.
+**User-visible outcome:** The app loads in dark mode by default with a consistent dark blue look (backgrounds and accents) across all pages and components, with readable text/icons and opaque, readable dialogs/popovers.

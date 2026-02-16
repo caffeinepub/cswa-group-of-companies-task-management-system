@@ -183,7 +183,7 @@ export default function ClientTable({ clients }: ClientTableProps) {
       </div>
 
       {editingClient && <EditClientDialog client={editingClient} open={true} onOpenChange={() => setEditingClient(null)} />}
-      {viewingClient && <ViewClientTasksDialog client={viewingClient} open={true} onOpenChange={() => setViewingClient(null)} />}
+      {viewingClient && <ViewClientTasksDialog clientName={viewingClient.name} open={true} onOpenChange={() => setViewingClient(null)} />}
       {addingTaskForClient && (
         <CreateTaskDialog
           open={true}

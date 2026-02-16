@@ -59,7 +59,7 @@ export default function AddClientDialog({ open, onOpenChange }: AddClientDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-popover text-popover-foreground border-border">
         <DialogHeader>
           <DialogTitle>Add New Client</DialogTitle>
         </DialogHeader>
@@ -95,7 +95,7 @@ export default function AddClientDialog({ open, onOpenChange }: AddClientDialogP
                 <SelectTrigger id="taskCategory">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover text-popover-foreground border-border">
                   <SelectItem value={Type__3.GST}>GST</SelectItem>
                   <SelectItem value={Type__3.Audit}>Audit</SelectItem>
                   <SelectItem value={Type__3.ITNotice}>IT Notice</SelectItem>
@@ -119,7 +119,7 @@ export default function AddClientDialog({ open, onOpenChange }: AddClientDialogP
                 <SelectTrigger id="recurring">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover text-popover-foreground border-border">
                   <SelectItem value={Type__1.none}>None</SelectItem>
                   <SelectItem value={Type__1.monthly}>Monthly</SelectItem>
                   <SelectItem value={Type__1.quarterly}>Quarterly</SelectItem>
@@ -142,7 +142,7 @@ export default function AddClientDialog({ open, onOpenChange }: AddClientDialogP
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover text-popover-foreground border-border">
                   <SelectItem value={Type__4.active}>Active</SelectItem>
                   <SelectItem value={Type__4.inactive}>Inactive</SelectItem>
                 </SelectContent>

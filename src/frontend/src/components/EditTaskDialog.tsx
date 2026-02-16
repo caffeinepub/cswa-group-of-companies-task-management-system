@@ -11,7 +11,9 @@ import type { Task } from '../backend';
 import { Type, Type__2, Type__3 } from '../backend';
 import { Principal } from '@dfinity/principal';
 import SearchableAssigneeSelect from './SearchableAssigneeSelect';
+import CaptainsMultiSelect from './CaptainsMultiSelect';
 import { toast } from 'sonner';
+import { getTaskStatusOptions } from '../utils/taskStatus';
 
 interface EditTaskDialogProps {
   task: Task;
@@ -26,6 +28,7 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
   const [subType, setSubType] = useState(task.subType || '');
   const [status, setStatus] = useState<Type__2>(task.status);
   const [assignedTo, setAssignedTo] = useState(task.assignedTo.toString());
+  const [captains, setCaptains] = useState<string[]>(task.captains.map((c) => c.toString()));
   const [dueDate, setDueDate] = useState('');
   const [assignmentDate, setAssignmentDate] = useState('');
   const [completionDate, setCompletionDate] = useState('');
@@ -38,6 +41,8 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
   const { data: teamMembers = [] } = useGetAllTeamMembers();
   const { identity } = useInternetIdentity();
 
+  const statusOptions = getTaskStatusOptions();
+
   useEffect(() => {
     setTitle(task.title);
     setClientName(task.clientName);
@@ -45,6 +50,7 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
     setSubType(task.subType || '');
     setStatus(task.status);
     setAssignedTo(task.assignedTo.toString());
+    setCaptains(task.captains.map((c) => c.toString()));
     setBill(task.bill || '');
     setAdvanceReceived(task.advanceReceived ? task.advanceReceived.toString() : '');
     setPaymentStatus(task.paymentStatus);
@@ -138,7 +144,7 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
     e.preventDefault();
     if (title.trim() && clientName && assignedTo) {
       const selectedMember = teamMembers.find((m) => m.principal.toString() === assignedTo);
-      const assignedName = selectedMember?.name || task.assignedName;
+      const assignedName = selectedMember?.name || '';
 
       // Convert due date string to nanoseconds timestamp with validation
       let dueDateNano: bigint | undefined = undefined;
@@ -175,21 +181,22 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
       // Parse advance received
       const advanceReceivedNat = advanceReceived ? BigInt(Math.floor(parseFloat(advanceReceived))) : undefined;
 
+      // Convert captains to Principal array
+      const captainsPrincipals = captains.map((c) => Principal.fromText(c));
+
       updateTask.mutate(
         {
           taskId: task.id,
           task: {
-            id: task.id,
-            clientId: task.clientId,
+            ...task,
             title: title.trim(),
             clientName: clientName,
             taskType: taskType,
+            subType: subType.trim() || undefined,
             status: status,
             assignedTo: Principal.fromText(assignedTo),
             assignedName: assignedName,
-            createdAt: task.createdAt,
-            recurring: task.recurring,
-            subType: subType.trim() || undefined,
+            captains: captainsPrincipals,
             dueDate: dueDateNano,
             manualAssignmentDate: manualAssignmentDateNano,
             bill: bill.trim() || undefined,
@@ -267,9 +274,11 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={Type__2.pending}>Pending</SelectItem>
-                <SelectItem value={Type__2.inProgress}>In Progress</SelectItem>
-                <SelectItem value={Type__2.completed}>Completed</SelectItem>
+                {statusOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -290,23 +299,17 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
               value={assignmentDate}
               onChange={(e) => setAssignmentDate(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              Manually adjust the assignment date if needed
-            </p>
           </div>
           {completionDate && (
             <div className="space-y-2">
-              <Label htmlFor="completionDate">Completion Date</Label>
+              <Label htmlFor="completionDate">Completion Date (Read-only)</Label>
               <Input
                 id="completionDate"
                 type="date"
                 value={completionDate}
                 disabled
-                className="bg-muted cursor-not-allowed"
+                className="bg-muted"
               />
-              <p className="text-xs text-muted-foreground">
-                Automatically set when task status changed to Completed
-              </p>
             </div>
           )}
           <div className="space-y-2">
@@ -332,12 +335,6 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
             <div className="p-3 bg-muted rounded-lg">
               <div className="text-sm font-medium text-muted-foreground mb-1">Outstanding Balance</div>
               <div className="text-2xl font-bold text-foreground">₹{outstandingAmount.toLocaleString()}</div>
-              {outstandingAmount === 0 && paymentStatus === Type.paid && (
-                <p className="text-xs text-green-600 mt-1">✓ Payment Complete</p>
-              )}
-              {outstandingAmount > 0 && (
-                <p className="text-xs text-amber-600 mt-1">Partial payment received</p>
-              )}
             </div>
           )}
           <div className="space-y-2">
@@ -354,20 +351,28 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="assignedTo">Assign To</Label>
+            <Label htmlFor="assignedTo">Assigned To</Label>
             <SearchableAssigneeSelect
               teamMembers={teamMembers}
               value={assignedTo}
               onValueChange={setAssignedTo}
-              placeholder="Select team member"
-              required
+              placeholder="Search and select assignee..."
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="comment">Comment (Optional)</Label>
+            <Label htmlFor="captains">Captains (Optional)</Label>
+            <CaptainsMultiSelect
+              teamMembers={teamMembers}
+              value={captains}
+              onValueChange={setCaptains}
+              placeholder="Select captains..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="comment">Comment {!canEditComment && '(Read-only)'}</Label>
             <Textarea
               id="comment"
-              placeholder="Add notes or comments about this task..."
+              placeholder="Add any additional notes..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
@@ -375,7 +380,7 @@ export default function EditTaskDialog({ task, open, onOpenChange }: EditTaskDia
             />
             {!canEditComment && (
               <p className="text-xs text-muted-foreground">
-                Only the assigned user or admin can edit comments
+                Only the assigned user can edit comments
               </p>
             )}
           </div>
